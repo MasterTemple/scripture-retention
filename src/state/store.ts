@@ -8,7 +8,7 @@ import { DEFAULT_AUTO_START, dueFromQueue, type AutoStart, type Queued } from "@
 import { DEFAULT_REMINDERS, type Reminders } from "@/core/reminders";
 import { DEFAULT_ACCENT, type Accent } from "@/lib/color";
 import { DEFAULT_DURATIONS, type Durations, type Order, type Verse } from "@/core/schedule";
-import { DEFAULT_SRS, history, isPlacing, mergeSrs, placement, withEntry, type AlgorithmId, type Grade, type Scheduler, type SrsOptions } from "@/core/srs";
+import { DEFAULT_SRS, history, isPlacing, mergeSrs, placement, toAlgorithm, withEntry, type AlgorithmId, type Grade, type Scheduler, type SrsOptions } from "@/core/srs";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -50,8 +50,11 @@ interface State {
 
   addVerses: (verses: Omit<Verse, "id">[]) => void;
   updateVerse: (id: string, patch: Partial<Omit<Verse, "id">>) => void;
-  /** Logs a review of a verse on `day`, graded (Good, under the fixed schedule); `replace` regrades its last review that day */
-  reviewVerse: (id: string, grade: Grade, day: Day, replace?: boolean) => void;
+  /**
+   * Logs a review of a verse on `day`, graded (Good, under the fixed schedule), or, with `at`,
+   * grades again the review logged there that day. Gives where in the log the grade is
+   */
+  reviewVerse: (id: string, grade: Grade, day: Day, at?: number) => number | null;
   /** Gives a verse a new start (`reviewed`: counted as reviewed on `day`), logging where that places it */
   moveVerse: (id: string, start: Day, day: Day, reviewed: boolean) => void;
   /** Places a verse by hand: next reviewed `days` after `day` (0: back to new), counted as reviewed when `reviewed` */
@@ -142,15 +145,23 @@ export const useApp = create<State>()(
 
       addVerses: (verses) => set((s) => ({ verses: [...s.verses, ...verses.map((v) => ({ ...v, id: newId() }))] })),
       updateVerse: (id, patch) => set((s) => ({ verses: s.verses.map((v) => (v.id === id ? { ...v, ...patch } : v)) })),
-      reviewVerse: (id, grade, day, replace = false) =>
+      reviewVerse: (id, grade, day, at) => {
+        let wrote: number | null = null;
         set((s) => ({
           verses: s.verses.map((v) => {
             if (v.id !== id) return v;
-            const last = v.log?.at(-1);
-            const regrade = replace && last && !isPlacing(last) && last.day === day;
-            return { ...v, last: day, log: regrade ? [...v.log!.slice(0, -1), { day, grade }] : withEntry(v, { day, grade }, s.settings.durations) };
+            const entry = at === undefined ? undefined : v.log?.[at];
+            if (entry && !isPlacing(entry) && entry.day === day) {
+              wrote = at!;
+              return { ...v, last: day, log: v.log!.map((e, i) => (i === at ? { day, grade } : e)) };
+            }
+            const log = withEntry(v, { day, grade }, s.settings.durations);
+            wrote = log.length - 1;
+            return { ...v, last: day, log };
           }),
-        })),
+        }));
+        return wrote;
+      },
       moveVerse: (id, start, day, reviewed) =>
         set((s) => ({
           verses: s.verses.map((v) => {
@@ -215,6 +226,7 @@ export const useApp = create<State>()(
             ...s.settings,
             durations: { ...DEFAULT_DURATIONS, ...s.settings?.durations },
             srs: mergeSrs(s.settings?.srs),
+            algorithm: toAlgorithm(s.settings?.algorithm),
             autoStart: { ...DEFAULT_AUTO_START, ...s.settings?.autoStart },
             reminders: { ...DEFAULT_REMINDERS, ...s.settings?.reminders },
           },

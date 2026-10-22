@@ -44,8 +44,9 @@ pub struct App {
     pub revealed: bool,
     /// Verses reviewed in this sitting
     pub reviewed: usize,
-    /// The places in the queue already graded, so going back and grading again replaces the grade
-    graded: Vec<usize>,
+    /// Beside each place in the queue, the log entry its grade (or reschedule) wrote, so going
+    /// back and grading again replaces that grade, and stepping forward past it doesn't grade it
+    wrote: Vec<Option<usize>>,
     // Verses: the one selected, and whether a delete waits for a second press
     pub selected: usize,
     pub confirm_delete: bool,
@@ -71,7 +72,7 @@ impl App {
             index: 0,
             revealed: false,
             reviewed: 0,
-            graded: Vec::new(),
+            wrote: Vec::new(),
             selected: 0,
             confirm_delete: false,
             adding: None,
@@ -103,7 +104,7 @@ impl App {
         self.index = 0;
         self.revealed = false;
         self.reviewed = 0;
-        self.graded.clear();
+        self.wrote = vec![None; self.queue.len()];
         let references: Vec<String> = self
             .queue
             .iter()
@@ -152,28 +153,32 @@ impl App {
             return;
         };
         let scheduler = self.scheduler();
-        let regrade = self.graded.contains(&self.index);
+        let at = self.graded_at();
         let day = self.day;
+        let mut wrote = None;
         if let Some(verse) = self.store.verses.iter_mut().find(|v| v.id == id) {
             if verse.last != Some(day) {
                 self.reviewed += 1;
             }
-            let replaces = regrade
-                && matches!(verse.log.last(), Some(LogEntry::Review { day: d, .. }) if *d == day);
-            if replaces {
-                verse.log.pop();
-                verse.log.push(LogEntry::Review { day, grade });
-            } else {
-                verse.log = with_entry(
-                    verse,
-                    LogEntry::Review { day, grade },
-                    scheduler.durations(),
-                );
+            match at {
+                Some(at) if matches!(verse.log.get(at), Some(LogEntry::Review { day: d, .. }) if *d == day) =>
+                {
+                    verse.log[at] = LogEntry::Review { day, grade };
+                    wrote = Some(at);
+                }
+                _ => {
+                    verse.log = with_entry(
+                        verse,
+                        LogEntry::Review { day, grade },
+                        scheduler.durations(),
+                    );
+                    wrote = verse.log.len().checked_sub(1);
+                }
             }
             verse.last = Some(day);
         }
         self.save();
-        self.advance(&id);
+        self.advance(&id, wrote);
     }
 
     /// Places the verse in front to come back in `days` (counted as reviewed) and goes on
@@ -188,15 +193,33 @@ impl App {
             }
             self.store.verses[i] = scheduler.placed(&self.store.verses[i], days, self.day, true);
         }
+        let wrote = self.verse(&id).and_then(|v| v.log.len().checked_sub(1));
         self.save();
-        self.advance(&id);
+        self.advance(&id, wrote);
     }
 
-    /// Goes to the next card. A verse still due today (a learning step, or a drill) goes to the
-    /// back of the queue; graded again after going back, it may no longer need its second look
-    fn advance(&mut self, id: &str) {
-        if !self.graded.contains(&self.index) {
-            self.graded.push(self.index);
+    /// The log entry the card in front was graded with in this review, if it was (going back to it)
+    pub fn graded_at(&self) -> Option<usize> {
+        self.wrote.get(self.index).copied().flatten()
+    }
+
+    /// Goes on without grading past a card graded already (stepping forward after going back),
+    /// or else grades it Good
+    pub fn forward(&mut self) {
+        if self.graded_at().is_some() {
+            self.index += 1;
+            self.revealed = false;
+        } else {
+            self.grade(Grade::Good);
+        }
+    }
+
+    /// Goes to the next card, noting the log entry the card in front wrote. A verse still due
+    /// today (a learning step, or a drill) goes to the back of the queue; graded again after going
+    /// back, it may no longer need that second look (its later looks not yet graded leave)
+    fn advance(&mut self, id: &str, wrote: Option<usize>) {
+        if let Some(mark) = self.wrote.get_mut(self.index) {
+            *mark = wrote;
         }
         let due = self
             .verse(id)
@@ -204,15 +227,18 @@ impl App {
         let ahead_has = self.queue[self.index + 1..].iter().any(|q| q == id);
         if due && !ahead_has {
             self.queue.push(id.to_string());
+            self.wrote.push(None);
         } else if !due && ahead_has {
-            let keep = self.index + 1;
-            let ahead: Vec<String> = self
+            let index = self.index;
+            let (queue, wrote) = self
                 .queue
-                .split_off(keep)
-                .into_iter()
-                .filter(|q| q != id)
-                .collect();
-            self.queue.extend(ahead);
+                .drain(..)
+                .zip(self.wrote.drain(..))
+                .enumerate()
+                .filter(|(i, (q, w))| *i <= index || q != id || w.is_some())
+                .map(|(_, kept)| kept)
+                .unzip();
+            (self.queue, self.wrote) = (queue, wrote);
         }
         self.index += 1;
         self.revealed = false;
@@ -361,7 +387,7 @@ impl App {
         match code {
             KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Right => {
                 if self.revealed {
-                    self.grade(Grade::Good);
+                    self.forward();
                 } else {
                     self.revealed = true;
                 }
@@ -542,6 +568,24 @@ mod tests {
         );
         // Graduated, it no longer needs its second look
         assert_eq!(app.queue, ["a", "b"]);
+    }
+
+    #[test]
+    fn going_back_and_forward_doesnt_grade_again() {
+        let mut app = app(AlgorithmId::Anki);
+        app.on_key(key(KeyCode::Char(' ')));
+        app.on_key(key(KeyCode::Char('1')));
+        app.on_key(key(KeyCode::Left));
+        app.on_key(key(KeyCode::Char(' ')));
+        assert_eq!(
+            app.store.verses[0].log,
+            [LogEntry::Review {
+                day: day("2026-10-21"),
+                grade: Grade::Again
+            }]
+        );
+        assert_eq!(app.queue, ["a", "b", "a"]);
+        assert_eq!(app.index, 1);
     }
 
     #[test]

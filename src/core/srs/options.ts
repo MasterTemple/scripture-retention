@@ -121,9 +121,24 @@ export const DEFAULT_SRS: SrsOptions = {
   ebisu: { targetRecall: 0.85, halflife: 1, ab: 3 },
 };
 
-/** Saved options over the defaults, so options added since still get theirs */
-export function mergeSrs(saved: Partial<{ [K in keyof SrsOptions]: Partial<SrsOptions[K]> }> | undefined): SrsOptions {
-  const out = {} as Record<keyof SrsOptions, unknown>;
-  for (const key of Object.keys(DEFAULT_SRS) as (keyof SrsOptions)[]) out[key] = { ...DEFAULT_SRS[key], ...saved?.[key] };
+/** A saved algorithm, or the fixed schedule for one this version doesn't know */
+export const toAlgorithm = (saved: unknown): AlgorithmId => (ALGORITHM_IDS.includes(saved as AlgorithmId) ? (saved as AlgorithmId) : "fixed");
+
+/** Whether a saved option has its default's type (numbers in a list of numbers) */
+const sameType = (value: unknown, fallback: unknown) =>
+  Array.isArray(fallback) ? Array.isArray(value) && value.every((n) => typeof n === "number" && Number.isFinite(n)) : typeof value === typeof fallback && (typeof value !== "number" || Number.isFinite(value));
+
+/**
+ * Saved options over the defaults, so options added since still get theirs (and one saved with
+ * the wrong type, from a hand-edited backup or a newer version, gets its default)
+ */
+export function mergeSrs(saved: unknown): SrsOptions {
+  const out = {} as Record<string, Record<string, unknown>>;
+  for (const [key, defaults] of Object.entries(DEFAULT_SRS) as [string, Record<string, unknown>][]) {
+    const given = (saved as Record<string, Record<string, unknown> | undefined> | undefined)?.[key];
+    out[key] = { ...defaults };
+    if (typeof given !== "object" || given === null) continue;
+    for (const [field, fallback] of Object.entries(defaults)) if (sameType(given[field], fallback)) out[key][field] = given[field];
+  }
   return out as unknown as SrsOptions;
 }

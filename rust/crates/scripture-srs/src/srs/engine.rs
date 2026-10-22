@@ -311,7 +311,16 @@ impl Scheduler {
 
     /// What each grade would do to a verse reviewed on `day`, for the buttons (none for the fixed schedule)
     pub fn preview(&self, verse: &Verse, day: Day) -> Vec<GradePreview> {
-        let entries = history(verse, day, &self.durations);
+        self.preview_at(verse, day, None)
+    }
+
+    /// What each grade would do in place of the review logged at `at` (going back to a card
+    /// graded already), or, with none, what [`Scheduler::preview`] gives
+    pub fn preview_at(&self, verse: &Verse, day: Day, at: Option<usize>) -> Vec<GradePreview> {
+        let entries = match at {
+            Some(at) if at < verse.log.len() => verse.log[..at].to_vec(),
+            _ => history(verse, day, &self.durations),
+        };
         let Some(card) = self.fold(verse, &entries) else {
             return Vec::new();
         };

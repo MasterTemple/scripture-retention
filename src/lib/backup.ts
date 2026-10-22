@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { makeBackup, readBackup } from "@/core/backup";
-import { mergeSrs, type SrsOptions } from "@/core/srs";
+import { mergeSrs, toAlgorithm } from "@/core/srs";
 import { reviewDay, useApp, type Settings } from "@/state/store";
 import { startReview } from "@/state/review";
 
@@ -35,7 +35,8 @@ export async function restoreBackup(file: File): Promise<boolean> {
       durations: { ...previous.settings.durations, ...saved.durations },
       autoStart: { ...previous.settings.autoStart, ...saved.autoStart },
       reminders: { ...previous.settings.reminders, ...saved.reminders },
-      srs: mergeSrs(saved.srs as Partial<SrsOptions> | undefined),
+      srs: mergeSrs(saved.srs),
+      algorithm: toAlgorithm(saved.algorithm),
     },
   });
   startReview();

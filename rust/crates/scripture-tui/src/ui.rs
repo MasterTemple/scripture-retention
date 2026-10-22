@@ -232,7 +232,11 @@ fn draw_review(frame: &mut Frame, area: Rect, app: &mut App, scheduler: &Schedul
     if app.revealed {
         let mut spans = Vec::new();
         if adaptive {
-            for (i, option) in scheduler.preview(&verse, app.day).iter().enumerate() {
+            for (i, option) in scheduler
+                .preview_at(&verse, app.day, app.graded_at())
+                .iter()
+                .enumerate()
+            {
                 spans.push(Span::styled(
                     format!(" {} ", i + 1),
                     Style::new().fg(Color::Black).bg(grade_color(option.grade)),

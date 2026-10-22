@@ -81,8 +81,7 @@ pub fn memory(s: &LadderState, o: &LadderOptions) -> Vec<(String, String)> {
     if s.r#box < 0 {
         return Vec::new();
     }
-    vec![(
-        "Box".into(),
-        format!("{} of {}", s.r#box + 1, o.intervals.len()),
-    )]
+    // Boxes past the last (since the ladder was shortened) are in the last
+    let shown = (s.r#box as usize).min(o.intervals.len().saturating_sub(1)) + 1;
+    vec![("Box".into(), format!("{shown} of {}", o.intervals.len()))]
 }

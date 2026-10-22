@@ -8,7 +8,7 @@ import { ALGORITHM_INFO, dueVerses, GRADE_NAMES, gradesFor, isAdaptive, preview,
 import { PHASE_STYLE } from "@/lib/phase";
 import { swipeHandlers } from "@/lib/swipe";
 import { cn } from "@/lib/utils";
-import { back, currentVerse, next, resetDay, reveal, startReview, useReview } from "@/state/review";
+import { back, currentVerse, forward, gradedAt, next, resetDay, reveal, startReview, useReview } from "@/state/review";
 import { useApp, useScheduler, useTranslation } from "@/state/store";
 import { prefetch, usePassageText } from "@/state/text";
 import { openPanel } from "@/state/ui";
@@ -52,7 +52,7 @@ function useReviewKeys(verse: Verse | null, day: Day) {
         next(day, graded);
       } else if (e.key === " " || e.key === "Enter" || e.key === "ArrowRight") {
         e.preventDefault();
-        if (revealed) next(day);
+        if (revealed) forward(day);
         else reveal();
       } else if (e.key === "ArrowLeft") {
         back();
@@ -77,7 +77,7 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
     () =>
       swipeHandlers((direction) => {
         if (direction === "right") return back();
-        if (useReview.getState().revealed) next(day);
+        if (useReview.getState().revealed) forward(day);
         else reveal();
       }),
     [day],
@@ -135,7 +135,7 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
             <Button variant="outline" size="lg" className="h-14 px-5 text-base" onClick={() => openPanel({ kind: "move", verseId: verse.id })}>
               <MoveIcon /> Move
             </Button>
-            <Button size="lg" className="h-14 text-base" onClick={() => next(day)}>
+            <Button size="lg" className="h-14 text-base" onClick={() => forward(day)}>
               Next <Kbd className="ml-1 hidden border-white/20 bg-white/15 text-primary-foreground md:inline-flex">Space</Kbd>
             </Button>
           </div>
@@ -162,7 +162,8 @@ const GRADE_STYLE: Record<Grade, string> = {
  */
 function GradeButtons({ verse, day }: { verse: Verse; day: Day }) {
   const sch = useScheduler();
-  const options = preview(verse, day, sch);
+  const at = useReview(gradedAt);
+  const options = preview(verse, day, sch, at);
   return (
     <div className="flex gap-2">
       <Button variant="outline" size="icon" className="h-14 w-12 shrink-0" onClick={() => openPanel({ kind: "move", verseId: verse.id })} aria-label="Reschedule">

@@ -42,7 +42,8 @@ function ladder(options: (o: SrsOptions) => LadderOptions): Algorithm<LadderStat
       return { ...s, box, interval, due: addDays(day, interval), last: day, reps: s.reps + 1, lapses: s.lapses + (grade === 1 && s.box >= 0 ? 1 : 0) };
     },
 
-    memory: (s, _day, o) => (s.box < 0 ? [] : [["Box", `${s.box + 1} of ${options(o).intervals.length}`]]),
+    // Boxes past the last (since the ladder was shortened) are in the last
+    memory: (s, _day, o) => (s.box < 0 ? [] : [["Box", `${Math.min(s.box, Math.max(0, options(o).intervals.length - 1)) + 1} of ${options(o).intervals.length}`]]),
   };
 }
 

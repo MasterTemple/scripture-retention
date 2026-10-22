@@ -124,12 +124,16 @@ export interface GradePreview {
   days: number;
 }
 
-/** What each grade would do to a verse reviewed on `day`, for the buttons */
-export function preview(verse: Verse, day: Day, sch: Scheduler): GradePreview[] {
+/**
+ * What each grade would do to a verse reviewed on `day`, for the buttons. With `at` (going back
+ * to a card graded already), what each would do in place of the grade logged there
+ */
+export function preview(verse: Verse, day: Day, sch: Scheduler, at?: number): GradePreview[] {
   if (!isAdaptive(sch.algorithm)) return [];
   const algorithm = ALGORITHMS[sch.algorithm];
-  const entries = history(verse, day, sch.durations);
-  const s = cardState(verse, day, { ...sch, algorithm: sch.algorithm });
+  const regrading = at !== undefined && !!verse.log && at < verse.log.length;
+  const entries = regrading ? verse.log!.slice(0, at) : history(verse, day, sch.durations);
+  const s = regrading ? fold(algorithm, verse, entries, sch.srs) : cardState(verse, day, { ...sch, algorithm: sch.algorithm });
   return algorithm.grades.map((grade) => {
     const after = algorithm.review(s, grade, day, sch.srs, randomFor(verse, entries.length));
     const days = after.due ? Math.max(0, daysBetween(day, after.due)) : 0;
