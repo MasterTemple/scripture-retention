@@ -127,7 +127,7 @@ function Bibles({ onDone }: { onDone: () => void }) {
         <a href="https://fetch.bible" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">
           fetch.bible
         </a>{" "}
-        as you practice them and stay saved on this device, so they work offline afterwards.
+        as you review them and stay saved on this device, so they work offline afterwards.
       </p>
     </div>
   );

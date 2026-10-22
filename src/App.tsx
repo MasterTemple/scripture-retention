@@ -15,7 +15,7 @@ import { applyAccent } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import { startReview } from "@/state/review";
 import { startDueQueued, useApp, useReviewDay } from "@/state/store";
-import { closePanel, openPanel, showView, useUi, type View } from "@/state/ui";
+import { closePanel, closePanelsFrom, openPanel, showView, useUi, type Panel, type View } from "@/state/ui";
 
 function useTheme() {
   const theme = useApp((s) => s.settings.theme);
@@ -161,18 +161,30 @@ function BottomTab({ icon, label, active, badge = 0, onClick }: { icon: ReactNod
   );
 }
 
-/** The one dialog open, if any */
+/** The dialogs open, each over the one it was opened from */
 function Panels({ day }: { day: string }) {
-  const panel = useUi((s) => s.panel);
-  const verses = useApp((s) => s.verses);
-  const moving = panel?.kind === "move" ? verses.find((v) => v.id === panel.verseId) : undefined;
-  return (
-    <Dialog open={panel !== null} onOpenChange={(open) => !open && closePanel()}>
-      {panel?.kind === "edit" && <EditDialog key={panel.verseId ?? "new"} verseId={panel.verseId} queue={panel.queue} day={day} />}
-      {panel?.kind === "import" && <ImportDialog day={day} />}
-      {panel?.kind === "settings" && <SettingsDialog />}
-      {panel?.kind === "translations" && <TranslationDialog onDone={() => openPanel({ kind: "settings" })} />}
-      {moving && <MoveDialog verse={moving} day={day} />}
+  const panels = useUi((s) => s.panels);
+  return panels.map((panel, i) => (
+    <Dialog key={`${i}-${panel.kind}`} open onOpenChange={(open) => !open && closePanelsFrom(i)}>
+      <PanelContent panel={panel} day={day} />
     </Dialog>
-  );
+  ));
+}
+
+function PanelContent({ panel, day }: { panel: Panel; day: string }) {
+  const verses = useApp((s) => s.verses);
+  switch (panel.kind) {
+    case "edit":
+      return <EditDialog key={panel.verseId ?? "new"} verseId={panel.verseId} queue={panel.queue} day={day} />;
+    case "import":
+      return <ImportDialog day={day} />;
+    case "settings":
+      return <SettingsDialog />;
+    case "translations":
+      return <TranslationDialog onDone={closePanel} />;
+    case "move": {
+      const verse = verses.find((v) => v.id === panel.verseId);
+      return verse ? <MoveDialog verse={verse} day={day} /> : null;
+    }
+  }
 }

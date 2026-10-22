@@ -9,12 +9,12 @@ export type Panel =
   | { kind: "move"; verseId: string }
   | { kind: "import" }
   | { kind: "settings" }
-  | { kind: "translations" }
-  | null;
+  | { kind: "translations" };
 
 interface Ui {
   view: View;
-  panel: Panel;
+  /** The dialogs open, bottom first: one opened from another opens over it, and closing it goes back */
+  panels: Panel[];
   /** The settings tab open last, opened again with them */
   settingsTab: SettingsTab;
 }
@@ -25,13 +25,20 @@ interface Ui {
  */
 function fromAddress(): Ui {
   const view = new URLSearchParams(location.search).get("view");
-  return { view: view === "verses" || view === "import" ? "verses" : "review", panel: view === "import" ? { kind: "import" } : null, settingsTab: "review" };
+  return { view: view === "verses" || view === "import" ? "verses" : "review", panels: view === "import" ? [{ kind: "import" }] : [], settingsTab: "review" };
 }
 
 export const useUi = create<Ui>()(() => fromAddress());
 
-export const openPanel = (panel: Panel) => useUi.setState({ panel });
-export const closePanel = () => useUi.setState({ panel: null });
+/** Opens a dialog over those open (in place of the top one, when it's the same kind) */
+export const openPanel = (panel: Panel) =>
+  useUi.setState((s) => ({ panels: s.panels.at(-1)?.kind === panel.kind ? [...s.panels.slice(0, -1), panel] : [...s.panels, panel] }));
+
+/** Closes the top dialog, going back to the one under it */
+export const closePanel = () => useUi.setState((s) => ({ panels: s.panels.slice(0, -1) }));
+
+/** Closes a dialog and those over it */
+export const closePanelsFrom = (index: number) => useUi.setState((s) => ({ panels: s.panels.slice(0, index) }));
 
 export function showView(view: View) {
   useUi.setState({ view });

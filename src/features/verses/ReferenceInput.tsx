@@ -9,7 +9,7 @@ import { verseText } from "@/state/text";
 /**
  * A reference field offering completions as it's typed (a tap or Tab takes one), first the
  * reference as typed when it's whole already, and saying what it reads the reference as, with
- * the text of its last verse
+ * the text of a verse of it
  */
 export function ReferenceInput({ id, value, onChange, autoFocus }: { id: string; value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -119,24 +119,29 @@ export function ReferenceInput({ id, value, onChange, autoFocus }: { id: string;
           </p>
         )
       ) : null}
-      {read.length > 0 && <LastVerse passages={read} />}
+      {read.length > 0 && <PreviewVerse passages={read} />}
     </div>
   );
 }
 
-/** The text of a reference's last verse, to see it's the one meant ("John 1:1-3" shows verse 3) */
-function LastVerse({ passages }: { passages: Passage[] }) {
+/**
+ * A verse's text, to see the reference is the one meant: the last verse once a verse is written
+ * ("John 1:1-3" shows verse 3), and the first before then ("Romans" and "Romans 1" show 1:1)
+ */
+function PreviewVerse({ passages }: { passages: Passage[] }) {
   const translation = useTranslation();
-  const last = passages.at(-1)?.verses.at(-1);
-  const key = last ? `${last.bookId}.${last.chapter}.${last.verse}` : "";
+  const passage = passages.at(-1);
+  const verseWritten = !!passage && (passage.reference.includes(":") || passage.verses.length === 1);
+  const verse = verseWritten ? passage.verses.at(-1) : passage?.verses[0];
+  const key = verse ? `${verse.bookId}.${verse.chapter}.${verse.verse}` : "";
   const [shown, setShown] = useState<{ key: string; text: string | null } | null>(null);
   useEffect(() => {
     if (!key) return;
-    const [bookId, chapter, verse] = key.split(".").map(Number) as [number, number, number];
+    const [bookId, chapter, number] = key.split(".").map(Number) as [number, number, number];
     let live = true;
     // A moment after typing stops, so each key doesn't fetch
     const timer = setTimeout(() => {
-      verseText(translation, { bookId, chapter, verse }).then(
+      verseText(translation, { bookId, chapter, verse: number }).then(
         (text) => live && setShown({ key, text }),
         () => live && setShown({ key, text: null }),
       );
@@ -146,10 +151,10 @@ function LastVerse({ passages }: { passages: Passage[] }) {
       clearTimeout(timer);
     };
   }, [key, translation]);
-  if (!last || !shown?.text) return null;
+  if (!verse || !shown?.text) return null;
   return (
     <p className={cn("line-clamp-3 rounded-lg bg-muted/60 px-3 py-2 font-serif text-[15px] leading-snug transition-opacity", shown.key !== key && "opacity-50")}>
-      <span className="mr-1 font-sans text-xs font-semibold text-muted-foreground">v{last.verse}</span>
+      <span className="mr-1 font-sans text-xs font-semibold text-muted-foreground">v{verse.verse}</span>
       {shown.text}
     </p>
   );
