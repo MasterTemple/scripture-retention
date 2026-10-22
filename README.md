@@ -29,6 +29,29 @@ It is designed that you would add 1 verse each week. Doing it at this rate will 
 
 You are free to add as many verses as you would like per week, however it is encouraged that you prioritize maintaining and reviewing previous verses, rather than memorizing more and more, lest you forget what you have worked towards.
 
+## Scheduling algorithms
+
+The method above is the default. Settings → **Schedule** can switch to any of the major spaced-repetition algorithms, which grade each review and space the next by how well the verse came back:
+
+| Algorithm | Grades | How it schedules |
+| --- | --- | --- |
+| **Scripture Memory** (default) | Next | Daily, weekly, then monthly, for set lengths of time |
+| **FSRS** | Again, Hard, Good, Easy | Anki's modern scheduler: each verse's stability and difficulty, and a review when recall falls to your desired retention. FSRS-4.5, FSRS-5, and FSRS-6, chosen by the parameters given (paste Anki's own) |
+| **Anki (SM-2)** | Again, Hard, Good, Easy | Anki's classic scheduler: learning and relearning steps, ease, easy bonus, hard interval, interval modifier, new interval, fuzz, and leeches, as in Anki's deck options |
+| **SuperMemo SM-2** | Again, Hard, Good, Easy (qualities 2–5) | 1 day, 6 days, then times the E-Factor; below Good, drilled again the same day |
+| **Leitner boxes** | Again, Good | A box per interval (1, 2, 4, 8… days); recalled moves up, forgotten goes back |
+| **Pimsleur** | Again, Good | Graduated intervals about five times apart: 1, 5, 25, 120, 730 days |
+| **Ebisu** | Again, Good | A Bayesian estimate of each verse's half-life; due when recall falls to your target |
+
+Under any of them:
+
+- Each button shows when the verse would come back (`<10m`, `3d`, `2mo`). A step under a day (Anki's `1m 10m`) brings the verse back later in the same sitting.
+- Every review is kept, and an algorithm's view of a verse comes from all of them, so you can switch algorithms at any time and nothing is lost. A verse from before grading (or imported at `@week 3`) starts where the fixed schedule has it.
+- Phases are named by how far apart the reviews are: *Days*, *Weeks*, *Months*.
+- Tap a verse in **Verses** to see what the algorithm knows of it (stability, difficulty, ease, box, half-life, retrievability), its history, and to reschedule it or start it over as new.
+
+Not included: SuperMemo's later algorithms (SM-17/18, unpublished in full), and Duolingo's half-life regression, whose weights have to be trained on a large body of reviews.
+
 ## Install it
 
 It's a web app that installs like any other and works offline.
@@ -42,7 +65,7 @@ It's a web app that installs like any other and works offline.
 
 1. Say the topic, the reference, and the verse.
 2. Tap the card (or swipe it, or tap **Continue**) to see the verse.
-3. Tap **Next** to go on, or swipe right to go back.
+3. Tap **Next** to go on, or swipe right to go back. Under an adaptive algorithm, tap how well it came back: **Again**, **Hard**, **Good**, or **Easy**.
 
 **Move** puts a verse in another phase, and how far into it ("week 3 of the weekly reviews"); a moved verse counts as reviewed.
 
@@ -52,9 +75,10 @@ On a computer:
 
 | Key | Does |
 | --- | --- |
-| Space, Enter, or → | Continue, then Next |
+| Space, Enter, or → | Continue, then Next (Good) |
+| 1, 2, 3, 4 | Again, Hard, Good, Easy (in the buttons' order) |
 | ← | Back |
-| M | Move |
+| M | Move (or reschedule) |
 
 ## Your verses
 
@@ -99,6 +123,8 @@ Queue:
 
 **Copy all as a list** (or **Share**, or **Save as a file**) exports every verse in the same form, with start dates, so it imports back the same.
 
+A list keeps where each verse is, not its graded reviews. Settings → Data → **Save backup** keeps everything (every review, the queue, and your settings) in one file, which **Restore** reads back.
+
 > [!IMPORTANT]
 > Your verses are kept in this browser only, so save a copy now and then.
 
@@ -135,11 +161,11 @@ The site has no server, so it can't push a notification at an exact time the way
 | Tab | What's in it |
 | --- | --- |
 | Review | Order (by phase or shuffled), keep the card steady, show the prompt, text size, the hour a new day begins, review today again |
-| Schedule | How long each phase lasts, and the day queued verses start |
+| Schedule | The algorithm and its options, how long each phase lasts, and the day queued verses start |
 | Reminders | Review each day, add a new verse, add to my calendar |
 | Bible | The translation: built in, from fetch.bible, or uploaded |
 | Appearance | The title bar, the theme, and the accent color (one of ten, or any color, kept readable in both themes) |
-| Data | Import, copy, share, or save your verses; check for updates; the source code on GitHub; links |
+| Data | Import, copy, share, or save your verses; save or restore a backup; check for updates; the source code on GitHub; links |
 
 ### Links
 
@@ -154,12 +180,13 @@ For a bookmark or a home-screen shortcut (Settings → Data has each ready to co
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # unit tests (the schedule, lists, queue, reminders, parsing, verse text)
+npm test           # unit tests (the schedule, every algorithm, lists, queue, reminders, parsing, verse text)
 npm run build      # static site in dist/
 ```
 
 - React 19, TypeScript, Vite, Tailwind CSS v4, and Radix primitives (shadcn-style components in `src/components/ui`)
 - `src/core/` (dates, the schedule, lists, the queue, reminders) has no browser imports, so the service worker uses it too
+- `src/core/srs/` holds the algorithms, each a set of pure functions over a verse's review log; FSRS is tested against [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) 3, 4, and 5 (FSRS-4.5, 5, and 6)
 - [topos-bible](https://www.npmjs.com/package/topos-bible) reads references and completes them as they're typed (`src/bible/topos.ts`)
 - [logoxide](https://www.npmjs.com/package/logoxide) reads USFM, USX, OSIS, and zips into per-verse text in a Web Worker, so its WebAssembly only loads when a book is first needed (`src/bible/parse.ts`, `src/bible/worker.ts`)
 - zustand for state (verses and settings persist in localStorage)
