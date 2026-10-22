@@ -1,4 +1,4 @@
-import { BellIcon, ExternalLinkIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
+import { BellIcon, ExternalLinkIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,29 +16,8 @@ import { checkForUpdate } from "@/lib/pwa";
 import { resetDay } from "@/state/review";
 import { reviewDay, useApp, useTranslation, type Theme } from "@/state/store";
 import { openPanel, useUi, viewUrl, type SettingsTab } from "@/state/ui";
-
-function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return (
-    <section className="px-5 py-3">
-      <h3 className="pt-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
-      {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
-      <div className="divide-y">{children}</div>
-    </section>
-  );
-}
-
-function Row({ title, description, children, htmlFor }: { title: string; description?: ReactNode; children: ReactNode; htmlFor?: string }) {
-  const Text = htmlFor ? Label : "div";
-  return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <Text htmlFor={htmlFor} className="block min-w-0 space-y-0.5">
-        <span className="block text-sm font-medium">{title}</span>
-        {description && <span className="block text-xs leading-snug font-normal text-muted-foreground">{description}</span>}
-      </Text>
-      <div className="shrink-0">{children}</div>
-    </div>
-  );
-}
+import { AlgorithmOptions, AlgorithmSection } from "./AlgorithmSettings";
+import { Row, Section, Stepper } from "./rows";
 
 const TABS: { value: SettingsTab; label: string; icon: typeof BellIcon }[] = [
   { value: "review", label: "Review", icon: BookOpenCheckIcon },
@@ -153,11 +132,21 @@ function ReviewTab() {
 
 function ScheduleTab() {
   const autoStart = useApp((s) => s.settings.autoStart);
+  const algorithm = useApp((s) => s.settings.algorithm);
   const update = useApp((s) => s.updateSettings);
   const id = useId();
   return (
     <>
-      <Section title="Phases" description="Changing these moves every verse, since where a verse is follows from its start date.">
+      <AlgorithmSection />
+      <AlgorithmOptions />
+      <Section
+        title="Phases"
+        description={
+          algorithm === "fixed"
+            ? "Changing these moves every verse, since where a verse is follows from its start date."
+            : "The fixed schedule's, used to place a verse you add partway in (at a week of its weekly reviews, say) before it has reviews of its own."
+        }
+      >
         <DurationRow setting="dailyWeeks" title="Daily for" unit="weeks" />
         <DurationRow setting="weeklyMonths" title="Then weekly for" unit="months" />
         <DurationRow setting="monthlyYears" title="Then monthly for" unit="years" />
@@ -247,20 +236,6 @@ function DataTab() {
         <LinkRow title="Import" url={viewUrl("import")} />
       </Section>
     </>
-  );
-}
-
-function Stepper({ value, min, max, step, format, onChange, width = "w-14" }: { value: number; min: number; max: number; step: number; format: (n: number) => string; onChange: (n: number) => void; width?: string }) {
-  return (
-    <div className="flex items-center gap-1">
-      <Button variant="outline" size="icon" className="size-10 sm:size-8" disabled={value <= min + 1e-9} onClick={() => onChange(value - step)} aria-label="Less">
-        <MinusIcon />
-      </Button>
-      <span className={cn("text-center text-sm font-medium whitespace-nowrap tabular-nums", width)}>{format(value)}</span>
-      <Button variant="outline" size="icon" className="size-10 sm:size-8" disabled={value >= max - 1e-9} onClick={() => onChange(value + step)} aria-label="More">
-        <PlusIcon />
-      </Button>
-    </div>
   );
 }
 

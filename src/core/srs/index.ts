@@ -11,7 +11,7 @@ import { formatInterval, hash, seeded } from "./util.ts";
 
 export * from "./options.ts";
 export * from "./types.ts";
-export { describeInterval, formatInterval } from "./util.ts";
+export { describeInterval, formatInterval, formatSteps, parseSteps } from "./util.ts";
 
 /** What scheduling a verse takes: the algorithm, its options, and the fixed schedule's lengths (for placing verses) */
 export interface Scheduler {

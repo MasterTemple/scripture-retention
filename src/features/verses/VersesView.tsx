@@ -5,23 +5,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/primitives";
 import { describeDay, type Day } from "@/core/dates";
 import { queueStarts, type Queued } from "@/core/queue";
-import { describePosition, PHASE_NAMES, PHASES, status } from "@/core/schedule";
+import { ADAPTIVE_PHASE_NAMES, describePosition, PHASE_NAMES, PHASES } from "@/core/schedule";
+import { isAdaptive, verseStatus } from "@/core/srs";
 import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
 import { PHASE_STYLE } from "@/lib/phase";
 import { cn } from "@/lib/utils";
-import { useApp } from "@/state/store";
+import { useApp, useScheduler } from "@/state/store";
 import { openPanel } from "@/state/ui";
 
 /** Every verse by where it is (daily, weekly, monthly, upcoming, retained); tap one to edit it */
 export function VersesView({ day }: { day: Day }) {
   const verses = useApp((s) => s.verses);
   const queue = useApp((s) => s.queue);
-  const durations = useApp((s) => s.settings.durations);
+  const sch = useScheduler();
+  const names = isAdaptive(sch.algorithm) ? ADAPTIVE_PHASE_NAMES : PHASE_NAMES;
   const [filter, setFilter] = useState("");
 
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const matches = (v: { tag: string; ref: string }) => words.every((w) => `#${v.tag} ${v.ref}`.toLowerCase().includes(w));
-  const shown = verses.filter(matches).map((verse) => ({ verse, status: status(verse, day, durations) }));
+  const shown = verses.filter(matches).map((verse) => ({ verse, status: verseStatus(verse, day, sch) }));
   const queueShown = queue.filter(matches);
   const total = verses.length + queue.length;
 
@@ -93,7 +95,11 @@ export function VersesView({ day }: { day: Day }) {
         </div>
       ) : (
         PHASES.map((phase) => {
-          const group = shown.filter((v) => v.status.phase === phase).sort((a, b) => b.verse.start.localeCompare(a.verse.start));
+          // Newest first; under an adaptive algorithm, soonest due first
+          const when = (s: (typeof shown)[number]["status"]) => s.scheduled ?? s.next ?? "";
+          const group = shown
+            .filter((v) => v.status.phase === phase)
+            .sort((a, b) => (isAdaptive(sch.algorithm) && phase !== "upcoming" ? when(a.status).localeCompare(when(b.status)) : b.verse.start.localeCompare(a.verse.start)));
           // The queue comes before the verses dated ahead, nearest first
           const queueSection = phase === "upcoming" && <QueueSection key="queue" shown={queueShown} day={day} filtered={words.length > 0} />;
           if (phase === "upcoming") group.reverse();
@@ -103,7 +109,7 @@ export function VersesView({ day }: { day: Day }) {
             <section key={phase} className="space-y-2">
               <h2 className="flex items-center gap-2 px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                 <span className={cn("size-2 rounded-full", PHASE_STYLE[phase].dot)} />
-                {PHASE_NAMES[phase]}
+                {names[phase]}
                 <span className="rounded-full bg-muted px-1.5 py-px text-[11px] tabular-nums">{group.length}</span>
               </h2>
               <ul className="divide-y overflow-hidden rounded-2xl border bg-card">

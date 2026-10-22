@@ -1,14 +1,16 @@
-import { CalendarClockIcon, PlayIcon, Trash2Icon } from "lucide-react";
+import { CalendarClockIcon, PlayIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
 import { Input, Label } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
-import { describeDay, isDay, type Day } from "@/core/dates";
+import { daysBetween, describeDay, isDay, type Day } from "@/core/dates";
 import { queueStarts } from "@/core/queue";
-import { useApp } from "@/state/store";
+import { isAdaptive, verseStatus } from "@/core/srs";
+import { useApp, useScheduler } from "@/state/store";
 import { closePanel } from "@/state/ui";
+import { AdaptiveSummary, IntervalPicker, ReviewHistory } from "./AdaptiveSchedule";
 import { PositionPicker, StartSummary } from "./PositionPicker";
 import { ReferenceInput } from "./ReferenceInput";
 
@@ -29,6 +31,12 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
   const [date, setDate] = useState<string>(start);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const ids = { tag: useId(), ref: useId(), date: useId() };
+  const sch = useScheduler();
+  const adaptive = isAdaptive(sch.algorithm);
+  // A verse with reviews logged is placed by its history under an adaptive algorithm, not its start
+  const tracked = adaptive && !!verse?.log?.length;
+  const [nextIn, setNextIn] = useState<number | null>(null);
+  const [forget, setForget] = useState(false);
 
   useEffect(() => setDate(start), [start]);
   // A second tap deletes; the first only asks, and lapses
@@ -46,8 +54,13 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
     const app = useApp.getState();
     const fields = { tag: tag.trim().replace(/^#/, ""), ref: ref.trim().replace(/\s+/g, " ") };
     if (where === "schedule") {
-      if (verse) app.updateVerse(verse.id, { ...fields, start });
-      else if (queued) {
+      if (verse) {
+        app.updateVerse(verse.id, fields);
+        if (tracked) {
+          if (forget) app.placeVerse(verse.id, 0, day, false);
+          else if (nextIn !== null) app.placeVerse(verse.id, nextIn, day, false);
+        } else if (start !== verse.start) app.moveVerse(verse.id, start, day, false);
+      } else if (queued) {
         app.updateQueued(queued.id, fields);
         app.startQueued(queued.id, start);
       } else app.addVerses([{ ...fields, start }]);
@@ -135,6 +148,30 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
         />
         {where === "queue" ? (
           <QueueNote id={queued?.id} day={day} />
+        ) : tracked && verse ? (
+          <>
+            <AdaptiveSummary verse={verse} day={day} />
+            {forget ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-3 text-sm">
+                <span>Starts over as new when saved.</span>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setForget(false)}>
+                  Keep it
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Label className="block space-y-1">
+                  <span className="block">Reschedule</span>
+                  <span className="block text-xs font-normal text-muted-foreground">Changed here, it comes back when you choose, and the algorithm goes on from there.</span>
+                </Label>
+                <IntervalPicker days={nextIn ?? untilNext(verse, day)} day={day} onChange={setNextIn} />
+                <Button type="button" variant="outline" size="sm" className="h-10 sm:h-8" onClick={() => setForget(true)}>
+                  <RotateCcwIcon /> Start over as new
+                </Button>
+              </div>
+            )}
+            <ReviewHistory log={verse.log ?? []} />
+          </>
         ) : (
           <>
             <div className="space-y-3">
@@ -157,7 +194,8 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
                 className="w-auto min-w-40"
               />
             </div>
-            <StartSummary start={start} day={day} />
+            {adaptive ? <AdaptiveSummary verse={{ id: verse?.id ?? "", tag, ref, start, last: verse?.last }} day={day} /> : <StartSummary start={start} day={day} />}
+            {verse?.log && <ReviewHistory log={verse.log} />}
           </>
         )}
         {verse?.last && <p className="text-xs text-muted-foreground">Last reviewed {describeDay(verse.last)}</p>}
@@ -166,6 +204,12 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
       </form>
     </DialogContent>
   );
+}
+
+/** Days from `day` to a verse's next review */
+function untilNext(verse: Parameters<typeof verseStatus>[0], day: Day) {
+  const s = verseStatus(verse, day, useApp.getState().settings);
+  return Math.max(1, s.next ? daysBetween(day, s.next) : (s.interval ?? 1));
 }
 
 /** When a queued verse (or one about to be) will start */

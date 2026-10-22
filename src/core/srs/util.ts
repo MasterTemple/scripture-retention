@@ -84,3 +84,22 @@ export function describeInterval(days: number): string {
 const trim = (n: number) => (Math.round(n * 10) / 10).toString();
 
 export const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);
+
+const STEP_UNITS: Record<string, number> = { s: 1 / 60, m: 1, h: 60, d: DAY_MINUTES };
+
+/** Steps as Anki writes them (`1m 10m 1h 1d`, minutes when no unit), in minutes; null when one isn't a length of time */
+export function parseSteps(text: string): number[] | null {
+  const steps: number[] = [];
+  for (const part of text.split(/[\s,]+/).filter(Boolean)) {
+    const match = /^(\d+(?:\.\d+)?)([smhd]?)$/i.exec(part);
+    if (!match) return null;
+    const minutes = Number(match[1]) * STEP_UNITS[(match[2] || "m").toLowerCase()]!;
+    if (!(minutes > 0)) return null;
+    steps.push(minutes);
+  }
+  return steps;
+}
+
+/** Steps in minutes as Anki writes them: `1m 10m 1d` */
+export const formatSteps = (steps: readonly number[]) =>
+  steps.map((m) => (m % DAY_MINUTES === 0 ? `${m / DAY_MINUTES}d` : m % 60 === 0 ? `${m / 60}h` : m < 1 ? `${Math.round(m * 60)}s` : `${trim(m)}m`)).join(" ");
