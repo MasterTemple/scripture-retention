@@ -60,20 +60,23 @@ verse can also be given a start date ahead, which puts it under *Upcoming*.
 **Import** adds a whole list at once, one verse a line:
 
 ```
-Once a day:
+Daily:
 `#before-my-eyes` Psalm 101:3
 `#in-the-night` Psalms 119:55 @day 12
 
-Once a week:
+Weekly:
 `#guard-your-heart` Proverbs 4:23
 `#assurance` 1 John 5:13 @week 3
 `#desire` Proverbs 6:25 @2026-01-04
+
+Monthly:
+`#called` Romans 8:28 @month 5
 
 Queue:
 `#renewed` Romans 12:1-2
 ```
 
-A heading (`Once a day:`, `Weekly:`, `## Monthly`) puts the verses below it in that bucket, at its first
+A heading (`Daily:`, `Weekly:`, `Monthly:`, or `## Daily` and so on) puts the verses below it in that bucket, at its first
 review today; `@day 12`, `@week 3`, `@month 5` place one further in, and `@2026-01-04` gives its start
 date outright; verses under `Queue:` are queued. The topic and backticks are optional; `#?` is a verse without a topic yet. **Copy all as
 a list** (or Share, or Save as a file) exports them in the same form, with start dates, so it imports

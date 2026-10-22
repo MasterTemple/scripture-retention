@@ -7,7 +7,7 @@ import { status, PHASE_NAMES, PHASES, startFor, type Bucket, type Durations, typ
  *
  *     `#topic` Psalm 119:147-148 @week 3
  *
- * The topic is optional (backticks too); a heading such as `Once a day:`, `Weekly:`, or `## Monthly`
+ * The topic is optional (backticks too); a heading such as `Daily:`, `Weekly:`, or `## Monthly`
  * puts the verses below it in that bucket, at its first review today unless the line says
  * otherwise: `@day 12`, `@week 3`, `@month 5` (a bucket and a position in it), or `@2026-09-01`
  * (the day its daily reviews began). Under a `Queue:` heading, verses without either are queued

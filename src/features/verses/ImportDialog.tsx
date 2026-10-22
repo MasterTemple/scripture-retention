@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/state/store";
 import { closePanel } from "@/state/ui";
 
-const EXAMPLE = "Once a day:\n`#guard-your-heart` Proverbs 4:23\n\nOnce a week:\n`#assurance` 1 John 5:13 @week 3\n`#desire` Proverbs 6:25 @2026-01-04\n\nQueue:\n`#renewed` Romans 12:1-2";
+const EXAMPLE = "Daily:\n`#guard-your-heart` Proverbs 4:23\n\nWeekly:\n`#assurance` 1 John 5:13 @week 3\n`#desire` Proverbs 6:25 @2026-01-04\n\nMonthly:\n`#called` Romans 8:28 @month 5\n\nQueue:\n`#renewed` Romans 12:1-2";
 
 const normalize = (ref: string) => ref.toLowerCase().replace(/\s+/g, " ").replace(/^psalms\b/, "psalm").trim();
 
@@ -105,7 +105,7 @@ export function ImportDialog({ day }: { day: Day }) {
           spellCheck={false}
           autoCapitalize="none"
           autoCorrect="off"
-          placeholder={"Once a day:\n#before-my-eyes Psalm 101:3\n\nOnce a week:\n#guard-your-heart Proverbs 4:23"}
+          placeholder={"Daily:\n#before-my-eyes Psalm 101:3\n\nWeekly:\n#guard-your-heart Proverbs 4:23\n\nMonthly:\n#called Romans 8:28"}
           className="min-h-44 resize-y font-mono text-sm leading-relaxed sm:text-[13px]"
         />
 
