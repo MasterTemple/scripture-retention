@@ -1,8 +1,11 @@
 import { addDays, addMonths, daysBetween, monthsBetween, type Day } from "./dates.ts";
+import type { LogEntry } from "./srs/types.ts";
+import { describeInterval } from "./srs/util.ts";
 
 /**
- * A memorized verse. Where it is in the schedule follows from `start` alone (the day its daily
- * reviews began); `last` is the day it was last reviewed
+ * A memorized verse. Where it is in the fixed schedule follows from `start` alone (the day its
+ * daily reviews began); `last` is the day it was last reviewed. `log` is every review since
+ * reviews were kept, which the adaptive algorithms work from
  */
 export interface Verse {
   id: string;
@@ -12,6 +15,7 @@ export interface Verse {
   ref: string;
   start: Day;
   last?: Day;
+  log?: LogEntry[];
 }
 
 /** The reviewing phases a verse goes through, in order */
@@ -67,6 +71,12 @@ export interface Status {
   due: boolean;
   /** When it's next scheduled after today (null once retained) */
   next: Day | null;
+  /** Under an adaptive algorithm: the days from its last review to its next */
+  interval?: number;
+  /** Under an adaptive algorithm: to be seen again the same day (a learning step, or a drill) */
+  learning?: boolean;
+  /** Under an adaptive algorithm: never reviewed */
+  fresh?: boolean;
 }
 
 export function status(verse: Verse, day: Day, durations: Durations): Status {
@@ -117,24 +127,9 @@ export function startFor(bucket: Bucket, position: number, day: Day, durations: 
 
 export type Order = "phase" | "shuffle";
 
-/** The verses due today: daily, then weekly, then monthly (oldest first in each), or shuffled */
-export function dueVerses(verses: readonly Verse[], day: Day, durations: Durations, order: Order = "phase", random: () => number = Math.random): Verse[] {
-  const due = verses
-    .map((verse) => ({ verse, status: status(verse, day, durations) }))
-    .filter((v) => v.status.due);
-  if (order === "shuffle") {
-    for (let i = due.length - 1; i > 0; i--) {
-      const j = Math.floor(random() * (i + 1));
-      [due[i], due[j]] = [due[j]!, due[i]!];
-    }
-  } else {
-    due.sort((a, b) => PHASES.indexOf(a.status.phase) - PHASES.indexOf(b.status.phase) || a.verse.start.localeCompare(b.verse.start));
-  }
-  return due.map((v) => v.verse);
-}
-
-/** `Day 12 of 49`, `Week 3 of 30`, `Month 5 of 84`, `Starts …`, `Retained` */
+/** `Day 12 of 49`, `Week 3 of 30`, `Month 5 of 84`, `Starts …`, `Retained`; under an adaptive algorithm, `New`, `Learning`, `Every 12 days` */
 export function describePosition(s: Status): string {
+  if (s.interval !== undefined && s.phase !== "upcoming") return s.fresh ? "New" : s.learning ? "Learning" : `Every ${describeInterval(s.interval)}`;
   switch (s.phase) {
     case "daily": return `Day ${s.position} of ${s.total}`;
     case "weekly": return `Week ${s.position} of ${s.total}`;
@@ -151,6 +146,9 @@ export const PHASE_NAMES: Record<Phase, string> = {
   upcoming: "Upcoming",
   retained: "Retained",
 };
+
+/** The phases' names under an adaptive algorithm, where a verse's phase is how far apart its reviews are */
+export const ADAPTIVE_PHASE_NAMES: Record<Phase, string> = { ...PHASE_NAMES, daily: "Days", weekly: "Weeks", monthly: "Months" };
 
 /** The unit a bucket's position counts */
 export const BUCKET_UNITS: Record<Bucket, string> = { daily: "Day", weekly: "Week", monthly: "Month" };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { create } from "zustand";
 import { persist, type PersistStorage, type StorageValue } from "zustand/middleware";
 import { BUILT_IN, DEFAULT_TRANSLATION } from "@/bible/translations";
@@ -8,10 +8,16 @@ import { DEFAULT_AUTO_START, dueFromQueue, type AutoStart, type Queued } from "@
 import { DEFAULT_REMINDERS, type Reminders } from "@/core/reminders";
 import { DEFAULT_ACCENT, type Accent } from "@/lib/color";
 import { DEFAULT_DURATIONS, type Durations, type Order, type Verse } from "@/core/schedule";
+import { DEFAULT_SRS, history, mergeSrs, placement, withEntry, type AlgorithmId, type Grade, type Scheduler, type SrsOptions } from "@/core/srs";
 
 export type Theme = "system" | "light" | "dark";
 
 export interface Settings {
+  /** The scheduling algorithm verses follow */
+  algorithm: AlgorithmId;
+  /** Each algorithm's options */
+  srs: SrsOptions;
+  /** The fixed schedule's phases (where a verse is placed when it starts, under any algorithm) */
   durations: Durations;
   /** Starting queued verses on a day of the week, or by hand */
   autoStart: AutoStart;
@@ -44,6 +50,12 @@ interface State {
 
   addVerses: (verses: Omit<Verse, "id">[]) => void;
   updateVerse: (id: string, patch: Partial<Omit<Verse, "id">>) => void;
+  /** Logs a review of a verse on `day`, graded (Good, under the fixed schedule) */
+  reviewVerse: (id: string, grade: Grade, day: Day) => void;
+  /** Gives a verse a new start (`reviewed`: counted as reviewed on `day`), logging where that places it */
+  moveVerse: (id: string, start: Day, day: Day, reviewed: boolean) => void;
+  /** Places a verse by hand: next reviewed `days` after `day` (0: back to new), counted as reviewed when `reviewed` */
+  placeVerse: (id: string, days: number, day: Day, reviewed: boolean) => void;
   removeVerse: (id: string) => void;
   queueVerses: (verses: Omit<Queued, "id">[]) => void;
   updateQueued: (id: string, patch: Partial<Omit<Queued, "id">>) => void;
@@ -111,6 +123,8 @@ export const useApp = create<State>()(
       verses: [],
       queue: [],
       settings: {
+        algorithm: "fixed",
+        srs: DEFAULT_SRS,
         durations: { ...DEFAULT_DURATIONS },
         autoStart: { ...DEFAULT_AUTO_START },
         order: "phase",
@@ -128,6 +142,21 @@ export const useApp = create<State>()(
 
       addVerses: (verses) => set((s) => ({ verses: [...s.verses, ...verses.map((v) => ({ ...v, id: newId() }))] })),
       updateVerse: (id, patch) => set((s) => ({ verses: s.verses.map((v) => (v.id === id ? { ...v, ...patch } : v)) })),
+      reviewVerse: (id, grade, day) =>
+        set((s) => ({ verses: s.verses.map((v) => (v.id === id ? { ...v, last: day, log: withEntry(v, { day, grade }, s.settings.durations) } : v)) })),
+      moveVerse: (id, start, day, reviewed) =>
+        set((s) => ({
+          verses: s.verses.map((v) => {
+            if (v.id !== id) return v;
+            const moved = { ...v, start, last: reviewed ? day : v.last };
+            const placed = placement(moved, day, s.settings.durations) ?? { day, set: 0 };
+            return { ...moved, log: [...history(v, day, s.settings.durations), placed] };
+          }),
+        })),
+      placeVerse: (id, days, day, reviewed) =>
+        set((s) => ({
+          verses: s.verses.map((v) => (v.id === id ? { ...v, last: reviewed ? day : v.last, log: withEntry(v, { day, set: days }, s.settings.durations) } : v)),
+        })),
       removeVerse: (id) => set((s) => ({ verses: s.verses.filter((v) => v.id !== id) })),
       queueVerses: (verses) => set((s) => ({ queue: [...s.queue, ...verses.map((v) => ({ ...v, id: newId() }))] })),
       updateQueued: (id, patch) => set((s) => ({ queue: s.queue.map((q) => (q.id === id ? { ...q, ...patch } : q)) })),
@@ -178,6 +207,7 @@ export const useApp = create<State>()(
             ...current.settings,
             ...s.settings,
             durations: { ...DEFAULT_DURATIONS, ...s.settings?.durations },
+            srs: mergeSrs(s.settings?.srs),
             autoStart: { ...DEFAULT_AUTO_START, ...s.settings?.autoStart },
             reminders: { ...DEFAULT_REMINDERS, ...s.settings?.reminders },
           },
@@ -214,6 +244,14 @@ export function useReviewDay(): Day {
     };
   }, [dayStartsAt]);
   return day;
+}
+
+/** What verses are scheduled by, kept the same object until a part of it changes */
+export function useScheduler(): Scheduler {
+  const algorithm = useApp((s) => s.settings.algorithm);
+  const durations = useApp((s) => s.settings.durations);
+  const srs = useApp((s) => s.settings.srs);
+  return useMemo(() => ({ algorithm, durations, srs }), [algorithm, durations, srs]);
 }
 
 export const useTranslation = (): Translation => {

@@ -1,7 +1,8 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { addDays, addMonths, monthsBetween, isDay } from "../src/core/dates.ts";
-import { boundaries, DEFAULT_DURATIONS as D, dueVerses, startFor, status, type Verse } from "../src/core/schedule.ts";
+import { boundaries, DEFAULT_DURATIONS as D, startFor, status, type Verse } from "../src/core/schedule.ts";
+import { DEFAULT_SRS, dueVerses } from "../src/core/srs/index.ts";
 
 const verse = (start: string, last?: string): Verse => ({ id: start, tag: "t", ref: "John 3:16", start, last });
 
@@ -68,5 +69,5 @@ test("due verses come daily, then weekly, then monthly", () => {
   const w = verse(startFor("weekly", 2, day, D));
   const d = verse(startFor("daily", 2, day, D));
   const done = verse(startFor("daily", 3, day, D), day);
-  assert.deepEqual(dueVerses([m, done, w, d], day, D).map((v) => v.id), [d.id, w.id, m.id]);
+  assert.deepEqual(dueVerses([m, done, w, d], day, { algorithm: "fixed", durations: D, srs: DEFAULT_SRS }).map((v) => v.id), [d.id, w.id, m.id]);
 });

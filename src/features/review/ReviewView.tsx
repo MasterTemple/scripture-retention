@@ -3,12 +3,13 @@ import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd, Progress } from "@/components/ui/primitives";
 import { describeDay, type Day } from "@/core/dates";
-import { describePosition, dueVerses, PHASE_NAMES, status, type Phase, type Verse } from "@/core/schedule";
+import { ADAPTIVE_PHASE_NAMES, describePosition, PHASE_NAMES, type Phase, type Verse } from "@/core/schedule";
+import { ALGORITHM_INFO, dueVerses, GRADE_NAMES, gradesFor, isAdaptive, preview, verseStatus, type Grade } from "@/core/srs";
 import { PHASE_STYLE } from "@/lib/phase";
 import { swipeHandlers } from "@/lib/swipe";
 import { cn } from "@/lib/utils";
 import { back, currentVerse, next, resetDay, reveal, startReview, useReview } from "@/state/review";
-import { useApp, useTranslation } from "@/state/store";
+import { useApp, useScheduler, useTranslation } from "@/state/store";
 import { prefetch, usePassageText } from "@/state/text";
 import { openPanel } from "@/state/ui";
 
@@ -36,14 +37,20 @@ export function ReviewView({ day }: { day: Day }) {
   return <Card key={verse.id} verse={verse} day={day} />;
 }
 
-/** Space or Enter (or →) continues and goes on; ← goes back; M moves */
+/** Space or Enter (or →) continues and goes on (Good); 1–4 grade, in the buttons' order; ← goes back; M moves */
 function useReviewKeys(verse: Verse | null, day: Day) {
+  const algorithm = useApp((s) => s.settings.algorithm);
   useEffect(() => {
+    const grades = gradesFor(algorithm);
     const onKey = (e: KeyboardEvent) => {
       if (!verse || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
       if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select, button, [role=dialog]")) return;
       const { revealed } = useReview.getState();
-      if (e.key === " " || e.key === "Enter" || e.key === "ArrowRight") {
+      const graded = isAdaptive(algorithm) && /^[1-4]$/.test(e.key) ? grades[Number(e.key) - 1] : undefined;
+      if (graded !== undefined && revealed) {
+        e.preventDefault();
+        next(day, graded);
+      } else if (e.key === " " || e.key === "Enter" || e.key === "ArrowRight") {
         e.preventDefault();
         if (revealed) next(day);
         else reveal();
@@ -55,17 +62,17 @@ function useReviewKeys(verse: Verse | null, day: Day) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [verse, day]);
+  }, [verse, day, algorithm]);
 }
 
 function Card({ verse, day }: { verse: Verse; day: Day }) {
-  const durations = useApp((s) => s.settings.durations);
+  const sch = useScheduler();
   const { index, queue, revealed } = useReview();
   // The topic and reference where they'll be once the verse shows, so nothing moves on revealing
   const steady = useApp((s) => s.settings.steadyCard);
   const top = revealed || steady;
   const prompt = useApp((s) => s.settings.showPrompt);
-  const s = status(verse, day, durations);
+  const s = verseStatus(verse, day, sch);
   const swipe = useMemo(
     () =>
       swipeHandlers((direction) => {
@@ -88,7 +95,7 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
             {index + 1} of {queue.length}
           </span>
         </div>
-        <PhasePill phase={s.phase} />
+        <PhasePill phase={s.phase} adaptive={isAdaptive(sch.algorithm)} />
         <span className="text-right tabular-nums">{describePosition(s)}</span>
       </div>
       <Progress value={index / queue.length} />
@@ -121,7 +128,9 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
 
       {/* In reach of a thumb: above the tab bar on a phone */}
       <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 -mx-4 bg-gradient-to-t from-background from-70% to-transparent px-4 pt-4 pb-2 md:bottom-0 md:pb-4">
-        {revealed ? (
+        {revealed && isAdaptive(sch.algorithm) ? (
+          <GradeButtons verse={verse} day={day} />
+        ) : revealed ? (
           <div className="grid grid-cols-[auto_1fr] gap-3">
             <Button variant="outline" size="lg" className="h-14 px-5 text-base" onClick={() => openPanel({ kind: "move", verseId: verse.id })}>
               <MoveIcon /> Move
@@ -140,11 +149,48 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
   );
 }
 
-export function PhasePill({ phase, className }: { phase: Phase; className?: string }) {
+const GRADE_STYLE: Record<Grade, string> = {
+  1: "text-destructive",
+  2: "text-warning",
+  3: "",
+  4: "text-success",
+};
+
+/**
+ * How well the verse came back, each grade with when it'd be seen next (`<10m`: again in this
+ * sitting), and rescheduling by hand
+ */
+function GradeButtons({ verse, day }: { verse: Verse; day: Day }) {
+  const sch = useScheduler();
+  const options = preview(verse, day, sch);
+  return (
+    <div className="flex gap-2">
+      <Button variant="outline" size="icon" className="h-14 w-12 shrink-0" onClick={() => openPanel({ kind: "move", verseId: verse.id })} aria-label="Reschedule">
+        <MoveIcon />
+      </Button>
+      <div className={cn("grid flex-1 gap-2", options.length === 4 ? "grid-cols-4" : "grid-cols-2")}>
+        {options.map((o, i) => (
+          <Button
+            key={o.grade}
+            variant={o.grade === 3 ? "default" : "outline"}
+            className="h-14 flex-col gap-0 px-1 text-base leading-tight"
+            onClick={() => next(day, o.grade)}
+            title={`${GRADE_NAMES[o.grade]} (${i + 1})`}
+          >
+            <span className={cn("font-semibold", o.grade !== 3 && GRADE_STYLE[o.grade])}>{GRADE_NAMES[o.grade]}</span>
+            <span className={cn("text-xs font-normal tabular-nums", o.grade === 3 ? "text-primary-foreground/80" : "text-muted-foreground")}>{o.label}</span>
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function PhasePill({ phase, adaptive = false, className }: { phase: Phase; adaptive?: boolean; className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold", PHASE_STYLE[phase].soft, className)}>
       <span className={cn("size-1.5 rounded-full", PHASE_STYLE[phase].dot)} />
-      {PHASE_NAMES[phase]}
+      {(adaptive ? ADAPTIVE_PHASE_NAMES : PHASE_NAMES)[phase]}
     </span>
   );
 }
@@ -204,7 +250,8 @@ function VerseText({ reference }: { reference: string }) {
 
 function Done({ day }: { day: Day }) {
   const verses = useApp((s) => s.verses);
-  const durations = useApp((s) => s.settings.durations);
+  const sch = useScheduler();
+  const names = isAdaptive(sch.algorithm) ? ADAPTIVE_PHASE_NAMES : PHASE_NAMES;
   const reviewed = useReview((s) => s.reviewed);
 
   if (verses.length === 0) {
@@ -216,8 +263,10 @@ function Done({ day }: { day: Day }) {
         <div className="space-y-1.5">
           <h2 className="font-serif text-2xl font-semibold">No verses yet</h2>
           <p className="max-w-sm text-sm text-balance text-muted-foreground">
-            Add the verses you've memorized, one at a time or a whole list at once. Each is reviewed daily for 7 weeks, weekly for 7 months, then monthly for
-            7 years.
+            Add the verses you've memorized, one at a time or a whole list at once.{" "}
+            {isAdaptive(sch.algorithm)
+              ? `${ALGORITHM_INFO[sch.algorithm].name} schedules each from how well you recall it.`
+              : "Each is reviewed daily for 7 weeks, weekly for 7 months, then monthly for 7 years."}
           </p>
         </div>
         <div className="flex w-full max-w-xs flex-col gap-2 sm:flex-row sm:justify-center">
@@ -232,9 +281,9 @@ function Done({ day }: { day: Day }) {
     );
   }
 
-  const statuses = verses.map((v) => status(v, day, durations));
+  const statuses = verses.map((v) => verseStatus(v, day, sch));
   const upcoming = statuses.flatMap((s) => (s.next && s.next > day ? [s.next] : [])).sort()[0];
-  const again = dueVerses(verses, day, durations);
+  const again = dueVerses(verses, day, sch);
   const doneToday = verses.filter((v) => v.last === day).length;
   return (
     <div className="flex flex-1 animate-fade-up flex-col items-center justify-center gap-5 px-2 py-10 text-center">
@@ -253,7 +302,7 @@ function Done({ day }: { day: Day }) {
         {(["daily", "weekly", "monthly"] as const).map((phase) => (
           <div key={phase} className="rounded-xl border bg-card px-2 py-3">
             <div className={cn("text-2xl font-semibold tabular-nums", PHASE_STYLE[phase].text)}>{statuses.filter((s) => s.phase === phase).length}</div>
-            <div className="text-xs text-muted-foreground">{PHASE_NAMES[phase]}</div>
+            <div className="text-xs text-muted-foreground">{names[phase]}</div>
           </div>
         ))}
       </div>

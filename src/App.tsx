@@ -3,7 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/overlays";
-import { dueVerses } from "@/core/schedule";
+import { dueVerses } from "@/core/srs";
 import { ReviewView } from "@/features/review/ReviewView";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { TranslationDialog } from "@/features/settings/TranslationDialog";
@@ -14,7 +14,7 @@ import { VersesView } from "@/features/verses/VersesView";
 import { applyAccent } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import { startReview } from "@/state/review";
-import { startDueQueued, useApp, useReviewDay } from "@/state/store";
+import { startDueQueued, useApp, useReviewDay, useScheduler } from "@/state/store";
 import { closePanel, closePanelsFrom, openPanel, showView, useUi, type Panel, type View } from "@/state/ui";
 
 function useTheme() {
@@ -56,8 +56,8 @@ function Logo() {
 
 function useDueCount(day: string) {
   const verses = useApp((s) => s.verses);
-  const durations = useApp((s) => s.settings.durations);
-  return dueVerses(verses, day, durations).length;
+  const sch = useScheduler();
+  return dueVerses(verses, day, sch).length;
 }
 
 export default function App() {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Day } from "@/core/dates";
-import { dueVerses, type Verse } from "@/core/schedule";
+import type { Verse } from "@/core/schedule";
+import { dueVerses, isPlacing, verseStatus, type Grade } from "@/core/srs";
 import { reviewDay, useApp } from "./store";
 
 /**
@@ -49,7 +50,7 @@ useApp.subscribe((state, previous) => {
 export function startReview(day: Day = reviewDay(), keepCurrent = false) {
   const { verses, settings } = useApp.getState();
   const r = useReview.getState();
-  const due = dueVerses(verses, day, settings.durations, settings.order).map((v) => v.id);
+  const due = dueVerses(verses, day, settings, settings.order).map((v) => v.id);
   const current = r.queue[r.index];
   if (keepCurrent && r.day === day && current !== undefined && due.includes(current)) {
     const before = r.queue.slice(0, r.index);
@@ -74,31 +75,50 @@ export function back() {
 }
 
 /** Counts a verse reviewed on `day` (once, however often it's seen) */
-export function markReviewed(verse: Verse, day: Day) {
+function count(verse: Verse, day: Day) {
   if (verse.last !== day) useReview.setState((r) => ({ reviewed: r.reviewed + 1 }));
-  useApp.getState().updateVerse(verse.id, { last: day });
 }
 
-/** Marks the card in front reviewed and goes on */
-export function next(day: Day) {
+/** Grades the card in front (Good, under the fixed schedule) and goes on */
+export function next(day: Day, grade: Grade = 3) {
   const r = useReview.getState();
   const verse = currentVerse(useApp.getState().verses, r);
-  if (verse) markReviewed(verse, day);
-  advance();
+  if (verse) {
+    count(verse, day);
+    useApp.getState().reviewVerse(verse.id, grade, day);
+  }
+  advance(verse, day);
 }
 
-/** Puts the card in front at another place in the schedule (counted as reviewed) and goes on */
+/** Puts the card in front at another place in the fixed schedule (counted as reviewed) and goes on */
 export function moveCurrent(start: Day, day: Day) {
-  const r = useReview.getState();
-  const verse = currentVerse(useApp.getState().verses, r);
+  const verse = currentVerse(useApp.getState().verses, useReview.getState());
   if (!verse) return;
-  useApp.getState().updateVerse(verse.id, { start });
-  markReviewed({ ...verse, start }, day);
-  advance();
+  count(verse, day);
+  useApp.getState().moveVerse(verse.id, start, day, true);
+  advance(verse, day);
 }
 
-function advance() {
-  useReview.setState((r) => ({ index: r.index + 1, revealed: false }));
+/** Reschedules the card in front to come back in `days` (counted as reviewed) and goes on */
+export function rescheduleCurrent(days: number, day: Day) {
+  const verse = currentVerse(useApp.getState().verses, useReview.getState());
+  if (!verse) return;
+  count(verse, day);
+  useApp.getState().placeVerse(verse.id, days, day, true);
+  advance(verse, day);
+}
+
+/**
+ * Goes to the next card. A verse that's still due today (a learning step, or a drill) goes to
+ * the back of the queue, to be seen again before the review is done
+ */
+function advance(verse: Verse | null, day: Day) {
+  const { verses, settings } = useApp.getState();
+  const updated = verse && verses.find((v) => v.id === verse.id);
+  useReview.setState((r) => {
+    const again = updated && verseStatus(updated, day, settings).due && !r.queue.slice(r.index + 1).includes(updated.id);
+    return { index: r.index + 1, revealed: false, queue: again ? [...r.queue, updated.id] : r.queue };
+  });
 }
 
 /**
@@ -108,7 +128,12 @@ function advance() {
 export function resetDay(day: Day): number {
   const { verses } = useApp.getState();
   const done = verses.filter((v) => v.last === day);
-  if (done.length > 0) useApp.setState({ verses: verses.map((v) => (v.last === day ? { ...v, last: undefined } : v)) });
+  const undo = (v: Verse): Verse => {
+    const log = v.log?.filter((e) => isPlacing(e) || e.day !== day);
+    const last = log?.filter((e) => !isPlacing(e)).at(-1)?.day;
+    return { ...v, last, log };
+  };
+  if (done.length > 0) useApp.setState({ verses: verses.map((v) => (v.last === day ? undo(v) : v)) });
   startReview(day);
   return done.length;
 }
