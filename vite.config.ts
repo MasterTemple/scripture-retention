@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -10,6 +11,17 @@ import { VitePWA } from "vite-plugin-pwa";
  * which saved books record having been read by
  */
 export const logoxideTextVersion = (): string => Logoxide.new().textVersion();
+
+/** Which build this is, shown in Settings: the commit and the day it was built */
+function buildName(): string {
+  let commit = "";
+  try {
+    commit = execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    // Not a git checkout
+  }
+  return [commit, new Date().toLocaleDateString("en-CA")].filter(Boolean).join(" · ");
+}
 
 export default defineConfig({
   // Relative URLs, so the build works under any path (GitHub Pages serves it at /scripture-retention/)
@@ -53,7 +65,7 @@ export default defineConfig({
       },
     }),
   ],
-  define: { __LOGOXIDE_TEXT_VERSION__: JSON.stringify(logoxideTextVersion()) },
+  define: { __LOGOXIDE_TEXT_VERSION__: JSON.stringify(logoxideTextVersion()), __BUILD__: JSON.stringify(buildName()) },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

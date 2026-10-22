@@ -1,4 +1,4 @@
-import { BellIcon, CalendarPlusIcon, CheckIcon, ChevronRightIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
+import { BellIcon, CalendarPlusIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,9 @@ import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
 import { allowNotifications, canNotify, canWake, downloadCalendar, needsInstall } from "@/lib/reminders";
 import type { Reminders } from "@/core/reminders";
 import { cn } from "@/lib/utils";
-import { useApp, useTranslation, type Theme } from "@/state/store";
+import { checkForUpdate } from "@/lib/pwa";
+import { resetDay } from "@/state/review";
+import { reviewDay, useApp, useTranslation, type Theme } from "@/state/store";
 import { openPanel, viewUrl } from "@/state/ui";
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
@@ -64,6 +66,7 @@ export function SettingsDialog() {
         >
           <Switch id={ids.steady} checked={settings.steadyCard} onCheckedChange={(steadyCard) => update({ steadyCard })} />
         </Row>
+        <ResetTodayRow />
         <Row title="New day begins at" description="Reviews before this hour count for the day before." htmlFor={ids.day}>
           <Select id={ids.day} className="w-32" value={settings.dayStartsAt} onChange={(e) => update({ dayStartsAt: Number(e.target.value) })}>
             {Array.from({ length: 12 }, (_, h) => (
@@ -149,7 +152,9 @@ export function SettingsDialog() {
         </div>
       </Section>
 
-      <Section title="Links" description="For a bookmark, a home-screen shortcut, or a daily reminder (see the README's Shortcuts and Scriptable notes).">
+      <AppSection />
+
+      <Section title="Links" description="For a bookmark or a home-screen shortcut.">
         <LinkRow title="Today's review" url={viewUrl("review")} />
         <LinkRow title="Your verses" url={viewUrl("verses")} />
         <LinkRow title="Import" url={viewUrl("import")} />
@@ -318,6 +323,50 @@ function RemindersSection() {
           <CalendarPlusIcon /> Add to my calendar
         </Button>
       </div>
+    </Section>
+  );
+}
+
+/** Makes the verses reviewed today due again */
+function ResetTodayRow() {
+  const day = reviewDay(useApp((s) => s.settings.dayStartsAt));
+  const done = useApp((s) => s.verses.filter((v) => v.last === day).length);
+  return (
+    <Row title="Review today again" description={done > 0 ? `${done} ${done === 1 ? "verse" : "verses"} reviewed today become due again.` : "Nothing reviewed today yet."}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-10 sm:h-8"
+        disabled={done === 0}
+        onClick={() => {
+          const n = resetDay(day);
+          toast.success(`${n} ${n === 1 ? "verse is" : "verses are"} due again`);
+        }}
+      >
+        <RotateCcwIcon /> Reset
+      </Button>
+    </Row>
+  );
+}
+
+/** Which version is running, and getting the newest one now */
+function AppSection() {
+  const [state, setState] = useState<"idle" | "checking">("idle");
+  const check = async () => {
+    setState("checking");
+    const result = await checkForUpdate();
+    setState("idle");
+    if (result === "current") toast.success("You have the newest version");
+    else if (result === "offline") toast.error("Couldn't check: you seem to be offline");
+    else if (result === "unavailable") location.reload();
+  };
+  return (
+    <Section title="App">
+      <Row title="Check for updates" description={<>Version {__BUILD__}. Getting a new version reloads the app; your verses stay.</>}>
+        <Button variant="outline" size="sm" className="h-10 sm:h-8" disabled={state === "checking"} onClick={check}>
+          {state === "checking" ? <Loader2Icon className="animate-spin" /> : <RefreshCwIcon />} {state === "checking" ? "Checking…" : "Update"}
+        </Button>
+      </Row>
     </Section>
   );
 }

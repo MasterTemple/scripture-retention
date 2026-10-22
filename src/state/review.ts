@@ -100,3 +100,15 @@ export function moveCurrent(start: Day, day: Day) {
 function advance() {
   useReview.setState((r) => ({ index: r.index + 1, revealed: false }));
 }
+
+/**
+ * Forgets the reviews done on `day`, so those verses are due again and the review starts over
+ * with them (handy for going through a day twice, or trying the app out). Moves stay as they are.
+ */
+export function resetDay(day: Day): number {
+  const { verses } = useApp.getState();
+  const done = verses.filter((v) => v.last === day);
+  if (done.length > 0) useApp.setState({ verses: verses.map((v) => (v.last === day ? { ...v, last: undefined } : v)) });
+  startReview(day);
+  return done.length;
+}

@@ -1,4 +1,4 @@
-import { AlertCircleIcon, BookPlusIcon, BookXIcon, CheckCircle2Icon, ChevronLeftIcon, ListPlusIcon, Loader2Icon, MoveIcon, RefreshCwIcon } from "lucide-react";
+import { AlertCircleIcon, BookPlusIcon, BookXIcon, CheckCircle2Icon, ChevronLeftIcon, ListPlusIcon, Loader2Icon, MoveIcon, RefreshCwIcon, RotateCcwIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd, Progress } from "@/components/ui/primitives";
@@ -7,7 +7,7 @@ import { describePosition, dueVerses, PHASE_NAMES, status, type Phase, type Vers
 import { PHASE_STYLE } from "@/lib/phase";
 import { swipeHandlers } from "@/lib/swipe";
 import { cn } from "@/lib/utils";
-import { back, currentVerse, next, reveal, startReview, useReview } from "@/state/review";
+import { back, currentVerse, next, resetDay, reveal, startReview, useReview } from "@/state/review";
 import { useApp, useTranslation } from "@/state/store";
 import { prefetch, usePassageText } from "@/state/text";
 import { openPanel } from "@/state/ui";
@@ -234,6 +234,7 @@ function Done({ day }: { day: Day }) {
   const statuses = verses.map((v) => status(v, day, durations));
   const upcoming = statuses.flatMap((s) => (s.next && s.next > day ? [s.next] : [])).sort()[0];
   const again = dueVerses(verses, day, durations);
+  const doneToday = verses.filter((v) => v.last === day).length;
   return (
     <div className="flex flex-1 animate-fade-up flex-col items-center justify-center gap-5 px-2 py-10 text-center">
       <div className="flex size-16 items-center justify-center rounded-full bg-success-soft text-success">
@@ -259,6 +260,11 @@ function Done({ day }: { day: Day }) {
       {again.length > 0 && (
         <Button size="lg" className="h-12" onClick={() => startReview(day)}>
           Review {again.length} more
+        </Button>
+      )}
+      {doneToday > 0 && (
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => resetDay(day)}>
+          <RotateCcwIcon /> Review today's {doneToday === 1 ? "verse" : `${doneToday} verses`} again
         </Button>
       )}
     </div>
