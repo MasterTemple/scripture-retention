@@ -5,6 +5,7 @@ pub mod ebisu;
 pub mod engine;
 pub mod fsrs;
 pub mod ladder;
+pub mod optimize;
 pub mod options;
 pub mod sm2;
 pub mod util;

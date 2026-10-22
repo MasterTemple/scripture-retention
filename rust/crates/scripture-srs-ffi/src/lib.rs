@@ -199,6 +199,18 @@ pub struct AlgorithmInfo {
     pub adaptive: bool,
 }
 
+/// FSRS's parameters fitted to the reviews logged
+#[data]
+#[derive(Clone, Debug, PartialEq)]
+pub struct FsrsFit {
+    /// FSRS-6's 21 parameters, for `withFsrsParams` (joined with `, `) or the web app's settings
+    pub params: Vec<f64>,
+    /// Reviews learned from (each on a later day than the one before)
+    pub reviews: u32,
+    /// Verses they came from
+    pub verses: u32,
+}
+
 /// How long each phase of the fixed schedule lasts
 #[data]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -217,6 +229,8 @@ pub enum SrsError {
     InvalidVerse { message: String },
     /// Options couldn't be read or used
     InvalidOptions { message: String },
+    /// Fitting FSRS's parameters failed
+    Training { message: String },
 }
 
 fn day(text: &str) -> Result<Day, SrsError> {
@@ -357,6 +371,25 @@ impl ScriptureSrs {
             .collect::<Result<Vec<_>, _>>()?;
         serde_json::to_string(&verses).map_err(|e| SrsError::InvalidVerse {
             message: e.to_string(),
+        })
+    }
+
+    /// FSRS-6's parameters fitted to the verses' reviews, by fsrs-rs (the optimizer Anki runs).
+    /// A verse counts from its first review as new (from the start of its log, or after it was
+    /// last started over), so verses from before grading are left out until they're started
+    /// over. Under 8 reviews the parameters are the defaults; under 64 only the first stabilities
+    /// are fitted. It takes a few seconds for a few thousand reviews: call it from a worker
+    pub fn optimize_fsrs(&self, verses: Vec<VerseRecord>) -> Result<FsrsFit, SrsError> {
+        let verses = verses
+            .into_iter()
+            .map(Verse::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        let fit = srs_core::srs::optimize::optimize(&verses)
+            .map_err(|message| SrsError::Training { message })?;
+        Ok(FsrsFit {
+            params: fit.params,
+            reviews: fit.reviews as u32,
+            verses: fit.verses as u32,
         })
     }
 

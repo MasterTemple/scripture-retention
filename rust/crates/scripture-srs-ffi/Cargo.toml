@@ -16,4 +16,4 @@ crate-type = ["lib", "staticlib", "cdylib"]
 boltffi = "0.31.0"
 serde_json = { workspace = true }
 # Named srs_core here: this crate's own library is scripture_srs (the package name BoltFFI uses)
-srs_core = { package = "scripture-srs", path = "../scripture-srs", features = ["serde"] }
+srs_core = { package = "scripture-srs", path = "../scripture-srs", features = ["serde", "optimizer"] }

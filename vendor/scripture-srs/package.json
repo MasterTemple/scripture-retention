@@ -1,0 +1,36 @@
+{
+  "name": "scripture-srs",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./scripture_srs.d.ts",
+      "browser": "./web.js",
+      "node": "./node.js",
+      "default": "./bundler.js"
+    }
+  },
+  "types": "./scripture_srs.d.ts",
+  "files": [
+    "bundler.js",
+    "node.js",
+    "scripture_srs.d.ts",
+    "scripture_srs.js",
+    "scripture_srs.js.map",
+    "scripture_srs_bg.d.ts",
+    "scripture_srs_bg.js",
+    "scripture_srs_bg.wasm",
+    "scripture_srs_imports.d.ts",
+    "scripture_srs_imports.js",
+    "scripture_srs_imports.js.map",
+    "scripture_srs_node.d.ts",
+    "scripture_srs_node.js",
+    "scripture_srs_node.js.map",
+    "web.js"
+  ],
+  "dependencies": {
+    "@boltffi/runtime": "^0.31.0"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/MasterTemple/scripture-retention"
+}

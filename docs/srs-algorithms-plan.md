@@ -126,6 +126,51 @@ dependency only); fold/placement/switching; Anki steps and fuzz bounds; session 
     TUI with Ratatui. The TypeScript engine and its tests are the spec; the Rust crate gets the
     same tests (FSRS against the same reference numbers) so the two stay in step.
 
+## Second round (asked 2026-10-22)
+
+### FSRS's optimizer
+
+Fit FSRS's parameters to the reviews logged, with fsrs-rs 6.6.2 (the optimizer Anki runs).
+
+* `scripture-srs` has it behind an `optimizer` feature (`srs::optimize`); the bindings expose
+  `ScriptureSrs.optimizeFsrs(verses)`. fsrs-rs no longer uses burn (ndarray), and builds for plain
+  wasm32 single-threaded (rayon falls back to the current thread; `getrandom`'s browser backend).
+  The published `fsrs-browser` needs shared memory (cross-origin isolation), which GitHub Pages
+  can't give, so it isn't used.
+* A verse's training history starts at its first review as new (the start of its log, or after it
+  was last started over); a log beginning with a placing is left out until it's started over, as
+  Anki leaves out cards without their first learning. Items end at reviews on a later day than the
+  one before (fsrs-rs requires one such review in each item).
+* The web app depends on the package vendored in `vendor/scripture-srs` (`scripts/vendor-srs.sh`
+  rebuilds it; it isn't on npm), loaded only when optimizing, in a worker.
+* Settings → Schedule → FSRS: "Optimize from my reviews" for the deck (or the default schedule),
+  showing how many reviews were used, and putting the parameters in.
+
+### Passages and decks
+
+* **Decks**: `decks: Deck[]` (`id`, `name`, optional own `schedule`: algorithm, options, phase
+  lengths, else the default schedule in Settings). A built-in deck (`default`, "Verses") holds every
+  verse without one. Review all decks or one; Settings → Schedule edits the default schedule or a
+  deck's own; deleting a deck deletes its verses and passages (with undo).
+* **Passages**: a book, chapters, or any reference ("1 Peter", "Romans 8-12", "Psalm 119:1-16")
+  added as one entry, `passages: PassageGroup[]` (`id`, `ref`, `tag`, `deck`, `unit`: a card per
+  verse, per chapter, per group of N verses, or one card). Its cards are ordinary verses
+  (`verse.passage` = its id), each with its own schedule and log, added and deleted together.
+  Card references: `1 Peter 1:3`, `1 Peter 1` (a whole chapter; a single-chapter book's is the
+  book, since topos reads "Jude 1" as a verse), `1 Peter 1:1-5`, partial chapters as ranges.
+* Picking: type a reference, or pick a book and tick chapters. The Verses view lists passages as
+  one row each (cards, due) opening to their cards.
+* Lists: `Deck: Name` headings; `1 Peter as chapters`, `Psalm 119 as groups of 8`, `James as one
+  card`, `Romans 8 as verses` lines. A backup keeps decks and passages.
+* Rust: `Verse` keeps `deck` and `passage`; the TUI uses each deck's schedule.
+
+### Later: half-life regression (Duolingo)
+
+Not built. h = 2^(θ·x), p = 2^(−Δ/h), x = (1, √(1+right), √(1+wrong), …). Duolingo's weights were
+fitted to its vocabulary data, not Scripture, so defaults would be invented; it would need θ fitted
+to the user's own grades (a small regression, cheap in the browser, noisy with few reviews). A
+module like Ebisu's in both engines, conformance cases, and a "fit" button like FSRS's.
+
 ## Progress
 
 - [x] 1. Plan
@@ -139,3 +184,8 @@ dependency only); fold/placement/switching; Anki steps and fuzz bounds; session 
       BoltFFI bindings (the cases pass through WebAssembly in Node and the Python wheel; README
       examples run and checked), Ratatui TUI (reads/writes the app's backup; tested, and run in
       tmux against fetch.bible)
+- [x] 14. FSRS optimizer in Rust and the bindings (vendored for the web app)
+- [ ] 15. Decks and passages: data, engine (per-deck schedulers), store, import/export, backup
+- [ ] 16. UI: deck chips, passage dialog (picker, units), passages in Verses, review by deck,
+      Settings per deck, Optimize button
+- [ ] 17. Rust: deck/passage fields, TUI per-deck schedules; README; browser check

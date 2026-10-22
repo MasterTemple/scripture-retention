@@ -8,6 +8,12 @@ repository.workspace = true
 
 [dependencies]
 serde = { workspace = true, optional = true }
+# FSRS's reference optimizer (the one Anki runs), for fitting parameters to the reviews logged
+fsrs = { version = "=6.6.2", default-features = false, optional = true }
+
+# fsrs-rs draws random numbers; in a browser they come from its crypto API
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"], optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
@@ -17,3 +23,5 @@ scripture-srs = { path = ".", features = ["serde"] }
 [features]
 # Reading and writing verses, logs, and options as the web app saves them
 serde = ["dep:serde"]
+# Fitting FSRS's parameters to the reviews logged (srs::optimize)
+optimizer = ["dep:fsrs", "dep:getrandom"]

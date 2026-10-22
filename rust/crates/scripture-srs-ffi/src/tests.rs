@@ -189,3 +189,55 @@ fn the_algorithms_and_helpers() {
     assert_eq!(srs.format_interval(45, None), "1.5mo");
     assert_eq!(srs.format_interval(0, Some(10.0)), "<10m");
 }
+
+#[test]
+fn fitting_fsrs_to_the_reviews_logged() {
+    let srs = ScriptureSrs::new();
+    let verses: Vec<VerseRecord> = (0..40u32)
+        .map(|i| {
+            let day =
+                |n: u32| srs_core::Day::from_epoch_days(20_000 + i64::from(i + n)).to_string();
+            let log = [0, 1, 4, 11, 26, 56]
+                .iter()
+                .map(|&n| LogItem::Review {
+                    day: day(n),
+                    grade: if (i + n) % 7 == 0 {
+                        Grade::Again
+                    } else {
+                        Grade::Good
+                    },
+                })
+                .collect();
+            VerseRecord {
+                id: i.to_string(),
+                log,
+                ..verse("2024-10-01")
+            }
+        })
+        .collect();
+    let fit = srs.optimize_fsrs(verses).unwrap();
+    assert_eq!((fit.params.len(), fit.reviews, fit.verses), (21, 200, 40));
+    let params = fit
+        .params
+        .iter()
+        .map(|p| p.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    assert!(SrsScheduler::create().with_fsrs_params(params).is_ok());
+    // A verse from before grading (its log begins with a placing) isn't learned from
+    let placed = VerseRecord {
+        log: vec![
+            LogItem::Place {
+                day: "2026-01-01".into(),
+                days: 7,
+            },
+            LogItem::Review {
+                day: "2026-01-08".into(),
+                grade: Grade::Good,
+            },
+        ],
+        ..verse("2025-01-01")
+    };
+    let none = srs.optimize_fsrs(vec![placed]).unwrap();
+    assert_eq!((none.reviews, none.verses), (0, 0));
+}
