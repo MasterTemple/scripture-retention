@@ -139,7 +139,7 @@ The site has no server, so it can't push a notification at an exact time the way
 | Reminders | Review each day, add a new verse, add to my calendar |
 | Bible | The translation: built in, from fetch.bible, or uploaded |
 | Appearance | The title bar, the theme, and the accent color (one of ten, or any color, kept readable in both themes) |
-| Data | Import, copy, share, or save your verses; check for updates; links |
+| Data | Import, copy, share, or save your verses; check for updates; the source code on GitHub; links |
 
 ### Links
 

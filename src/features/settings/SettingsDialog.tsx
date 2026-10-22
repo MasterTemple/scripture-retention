@@ -1,4 +1,4 @@
-import { BellIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
+import { BellIcon, ExternalLinkIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -435,7 +435,9 @@ function ResetTodayRow() {
   );
 }
 
-/** Which version is running, and getting the newest one now */
+const REPOSITORY = "https://github.com/MasterTemple/scripture-retention";
+
+/** Which version is running, getting the newest one now, and where the code is */
 function AppSection() {
   const [state, setState] = useState<"idle" | "checking">("idle");
   const check = async () => {
@@ -451,6 +453,13 @@ function AppSection() {
       <Row title="Check for updates" description={<>Version {__BUILD__}. Getting a new version reloads the app; your verses stay.</>}>
         <Button variant="outline" size="sm" className="h-10 sm:h-8" disabled={state === "checking"} onClick={check}>
           {state === "checking" ? <Loader2Icon className="animate-spin" /> : <RefreshCwIcon />} {state === "checking" ? "Checking…" : "Update"}
+        </Button>
+      </Row>
+      <Row title="Source code" description="On GitHub, where you can also report a problem or suggest something.">
+        <Button variant="outline" size="sm" className="h-10 sm:h-8" asChild>
+          <a href={REPOSITORY} target="_blank" rel="noreferrer">
+            <ExternalLinkIcon /> GitHub
+          </a>
         </Button>
       </Row>
     </Section>
