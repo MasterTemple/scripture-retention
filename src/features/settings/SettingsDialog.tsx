@@ -1,5 +1,5 @@
-import { BellIcon, ExternalLinkIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { ArchiveIcon, ArchiveRestoreIcon, BellIcon, ExternalLinkIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
@@ -7,6 +7,7 @@ import { Input, Label, Select, Switch } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
 import { WEEKDAYS } from "@/core/dates";
 import type { Durations, Order } from "@/core/schedule";
+import { downloadBackup, restoreBackup } from "@/lib/backup";
 import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
 import { allowNotifications, canNotify, canWake, downloadCalendar, needsInstall } from "@/lib/reminders";
 import type { Reminders } from "@/core/reminders";
@@ -229,6 +230,7 @@ function DataTab() {
           </Button>
         </div>
       </Section>
+      <BackupSection />
       <AppSection />
       <Section title="Links" description="For a bookmark or a home-screen shortcut.">
         <LinkRow title="Today's review" url={viewUrl("review")} />
@@ -236,6 +238,35 @@ function DataTab() {
         <LinkRow title="Import" url={viewUrl("import")} />
       </Section>
     </>
+  );
+}
+
+/** Everything (review history and settings too) as one file, and back */
+function BackupSection() {
+  const count = useApp((s) => s.verses.length + s.queue.length);
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <Section title="Backup" description="A list keeps only where each verse is. A backup keeps every review too, which the adaptive algorithms work from, and your settings.">
+      <div className="grid grid-cols-2 gap-2 py-3">
+        <Button variant="outline" className="h-11 sm:h-9" onClick={downloadBackup} disabled={count === 0}>
+          <ArchiveIcon /> Save backup
+        </Button>
+        <Button variant="outline" className="h-11 sm:h-9" onClick={() => input.current?.click()}>
+          <ArchiveRestoreIcon /> Restore
+        </Button>
+        <input
+          ref={input}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) await restoreBackup(file);
+          }}
+        />
+      </div>
+    </Section>
   );
 }
 

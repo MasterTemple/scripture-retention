@@ -129,7 +129,7 @@ export type Order = "phase" | "shuffle";
 
 /** `Day 12 of 49`, `Week 3 of 30`, `Month 5 of 84`, `Starts …`, `Retained`; under an adaptive algorithm, `New`, `Learning`, `Every 12 days` */
 export function describePosition(s: Status): string {
-  if (s.interval !== undefined && s.phase !== "upcoming") return s.fresh ? "New" : s.learning ? "Learning" : `Every ${describeInterval(s.interval)}`;
+  if (s.interval !== undefined && s.phase !== "upcoming") return s.fresh ? "New" : s.learning ? "Learning" : s.interval === 1 ? "Every day" : `Every ${describeInterval(s.interval)}`;
   switch (s.phase) {
     case "daily": return `Day ${s.position} of ${s.total}`;
     case "weekly": return `Week ${s.position} of ${s.total}`;
