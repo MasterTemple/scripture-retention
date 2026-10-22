@@ -17,6 +17,7 @@ const record = (v: Verse): VerseRecord => ({
   last: v.last ?? null,
   deck: v.deck ?? null,
   passage: v.passage ?? null,
+  paused: v.paused ?? null,
   log: (v.log ?? []).map((e): LogItem => ("set" in e ? { tag: "Place", day: e.day, days: e.set } : { tag: "Review", day: e.day, grade: GRADES[e.grade - 1]! })),
 });
 

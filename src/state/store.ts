@@ -7,7 +7,7 @@ import { today, type Day } from "@/core/dates";
 import { DEFAULT_AUTO_START, dueFromQueue, type AutoStart, type Queued } from "@/core/queue";
 import { DEFAULT_REMINDERS, type Reminders } from "@/core/reminders";
 import { DEFAULT_ACCENT, type Accent } from "@/lib/color";
-import { DEFAULT_DURATIONS, type Durations, type Order, type Verse } from "@/core/schedule";
+import { DEFAULT_DURATIONS, resumedStart, type Durations, type Order, type Verse } from "@/core/schedule";
 import { DEFAULT_SRS, history, isPlacing, mergeSrs, placement, toAlgorithm, withEntry, type AlgorithmId, type Grade, type Scheduler, type SrsOptions } from "@/core/srs";
 import { DEFAULT_DECK, DEFAULT_DECKS, deckOf, deckScheduler, readDecks, schedulers, type Deck, type DeckSchedule } from "@/core/decks";
 import type { PassageGroup } from "@/core/passages";
@@ -37,6 +37,8 @@ export interface Settings {
   showPrompt: boolean;
   /** Show a card's topic and reference the same before and after revealing the verse */
   steadyCard: boolean;
+  /** Show a card of several verses one verse at a time, each on a tap */
+  verseByVerse: boolean;
   /** How large the verse is set on a card, 1 being the default */
   textScale: number;
   theme: Theme;
@@ -68,6 +70,8 @@ interface State {
   /** Places a verse by hand: next reviewed `days` after `day` (0: back to new), counted as reviewed when `reviewed` */
   placeVerse: (id: string, days: number, day: Day, reviewed: boolean) => void;
   removeVerse: (id: string) => void;
+  /** Pauses verses on `day` (not due, and held where they are), or resumes them where they were */
+  pauseVerses: (ids: string[], paused: boolean, day: Day) => void;
   queueVerses: (verses: Omit<Queued, "id">[]) => void;
   updateQueued: (id: string, patch: Partial<Omit<Queued, "id">>) => void;
   removeQueued: (id: string) => void;
@@ -160,6 +164,7 @@ export const useApp = create<State>()(
         translations: [],
         steadyCard: true,
         showPrompt: true,
+        verseByVerse: false,
         accent: DEFAULT_ACCENT,
         showHeader: true,
         reminders: DEFAULT_REMINDERS,
@@ -201,6 +206,15 @@ export const useApp = create<State>()(
           verses: s.verses.map((v) => (v.id === id ? { ...v, last: reviewed ? day : v.last, log: withEntry(v, { day, set: days }, durationsOf(s, v)) } : v)),
         })),
       removeVerse: (id) => set((s) => ({ verses: s.verses.filter((v) => v.id !== id) })),
+      pauseVerses: (ids, paused, day) =>
+        set((s) => ({
+          verses: s.verses.map((v) => {
+            if (!ids.includes(v.id) || !!v.paused === paused) return v;
+            if (paused) return { ...v, paused: day };
+            const { paused: _, ...rest } = v;
+            return { ...rest, start: resumedStart(v, day) };
+          }),
+        })),
       queueVerses: (verses) => set((s) => ({ queue: [...s.queue, ...verses.map((v) => ({ ...v, id: newId() }))] })),
       updateQueued: (id, patch) => set((s) => ({ queue: s.queue.map((q) => (q.id === id ? { ...q, ...patch } : q)) })),
       removeQueued: (id) => set((s) => ({ queue: s.queue.filter((q) => q.id !== id) })),

@@ -61,6 +61,7 @@ const isVerse = (v: unknown): v is Verse => {
     typeof x.start === "string" &&
     isDay(x.start) &&
     (x.last === undefined || (typeof x.last === "string" && isDay(x.last))) &&
+    (x.paused === undefined || (typeof x.paused === "string" && isDay(x.paused))) &&
     (x.log === undefined || (Array.isArray(x.log) && x.log.every(isEntry)))
   );
 };

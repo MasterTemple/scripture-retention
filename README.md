@@ -6,7 +6,7 @@ Keep the Scripture you've already memorized: review each verse daily, then weekl
 
 <p align="center">
   <a href="docs/review-card.png"><img src="docs/review-card.png" width="23%" alt="A review card: the topic and reference, before the verse shows" /></a>
-  <a href="docs/review-verse.png"><img src="docs/review-verse.png" width="23%" alt="The same card with the verse shown, and Move and Next" /></a>
+  <a href="docs/review-verse.png"><img src="docs/review-verse.png" width="23%" alt="The same card with the verse shown, and Next" /></a>
   <a href="docs/done.png"><img src="docs/done.png" width="23%" alt="Done for today: verses reviewed, and how many are daily, weekly, and monthly" /></a>
   <a href="docs/verses.png"><img src="docs/verses.png" width="23%" alt="The verse list, grouped by phase" /></a>
 </p>
@@ -65,7 +65,7 @@ Memorized a whole book, or chapters? **Verses → ⋯ → Add a book or chapters
 | Groups of N verses | `1 Peter 1:1-5`, `1 Peter 1:6-10` … (within each chapter) |
 | One card | `1 Peter` |
 
-Each card is reviewed on its own schedule, and the passage is one row in **Verses** (how many cards, how many due), added and deleted as a whole.
+Each card is reviewed on its own schedule, and the passage is one row in **Verses** (how many cards, how many due), added and deleted as a whole. Open it to switch cards off: a card switched off is paused (see below).
 
 ## Decks
 
@@ -86,7 +86,9 @@ It's a web app that installs like any other and works offline.
 2. Tap the card (or swipe it, or tap **Continue**) to see the verse.
 3. Tap **Next** to go on, or swipe right to go back. Under an adaptive algorithm, tap how well it came back: **Again**, **Hard**, **Good**, or **Easy**.
 
-**Move** puts a verse in another phase, and how far into it ("week 3 of the weekly reviews"); a moved verse counts as reviewed.
+Tap where the verse is ("Day 12 of 49", top right) to move it: into another phase, and how far into it ("week 3 of the weekly reviews"), or, under an adaptive algorithm, to come back in so many days. A moved verse counts as reviewed. Tap the topic or reference to edit the verse, or a card's passage name to open the passage.
+
+With **One verse at a time** on (Settings → Review), a card of several verses shows its first verse, then the next on each tap (or Space, or a swipe), scrolled into view, so a passage can be recited a verse at a time and checked as you go; **Show all** shows the rest.
 
 A verse is due on its scheduled day (every day, then every 7 days, then the same day each month) and stays due until it's reviewed, so a missed weekly or monthly verse comes up the next day.
 
@@ -94,14 +96,16 @@ On a computer:
 
 | Key | Does |
 | --- | --- |
-| Space, Enter, or → | Continue, then Next (Good) |
+| Space, Enter, or → | Continue, the next verse (one verse at a time), then Next (Good) |
 | 1, 2, 3, 4 | Again, Hard, Good, Easy (in the buttons' order) |
 | ← | Back |
 | M | Move (or reschedule) |
 
 ## Your verses
 
-**Verses** lists every verse by where it is: daily, weekly, monthly, queued, upcoming, or retained. Tap one to change its topic, reference, or place in the schedule, or to delete it. Where a verse is follows from one date alone: the day its daily reviews began.
+**Verses** lists every verse by where it is: daily, weekly, monthly, queued, upcoming, or retained. Tap one to change its topic, reference, or place in the schedule, to pause it, or to delete it. Where a verse is follows from one date alone: the day its daily reviews began.
+
+A paused verse isn't reviewed and doesn't move on: it's held where it was the day it was paused. Resumed, it picks up there (its schedule moves on by the days it was paused), due that day.
 
 As you type a reference, the app suggests completions and shows a verse's text, so you can see it's the one you meant.
 
@@ -181,7 +185,7 @@ The site has no server, so it can't push a notification at an exact time the way
 
 | Tab | What's in it |
 | --- | --- |
-| Review | Order (by phase or shuffled), keep the card steady, show the prompt, text size, the hour a new day begins, review today again |
+| Review | Order (by phase or shuffled), keep the card steady, show the prompt, one verse at a time, text size, the hour a new day begins, review today again |
 | Schedule | The algorithm and its options (the default schedule, or a deck's own), optimizing FSRS, how long each phase lasts, and the day queued verses start |
 | Reminders | Review each day, add a new verse, add to my calendar |
 | Bible | The translation: built in, from fetch.bible, or uploaded |

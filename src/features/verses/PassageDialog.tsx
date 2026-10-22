@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { allBooks, chapterLength, readPassages } from "@/bible/topos";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
-import { Input, Label, Select } from "@/components/ui/primitives";
+import { Input, Label, Select, Switch } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
 import { describeDay, type Day } from "@/core/dates";
 import { DEFAULT_DECK, deckOf, deckScheduler } from "@/core/decks";
@@ -223,7 +223,10 @@ function ChapterPicker({ onPick }: { onPick: (reference: string) => void }) {
   );
 }
 
-/** A passage: its cards (each opening to its schedule), its topic and deck, and deleting it whole */
+/**
+ * A passage: its cards (each opening to its schedule, and switched off to pause it), its topic and
+ * deck, and deleting it whole
+ */
 function PassageView({ passageId, day }: { passageId: string; day: Day }) {
   const passage = useApp((s) => s.passages.find((p) => p.id === passageId));
   const verses = useApp((s) => s.verses);
@@ -245,6 +248,8 @@ function PassageView({ passageId, day }: { passageId: string; day: Day }) {
   const statuses = cards.map((v) => ({ verse: v, status: verseStatus(v, day, schedulerFor(v)) }));
   statuses.sort((a, b) => PHASES.indexOf(a.status.phase) - PHASES.indexOf(b.status.phase) || 0);
   const due = statuses.filter((s) => s.status.due).length;
+  const paused = cards.filter((v) => v.paused).length;
+  const pause = (ids: string[], on: boolean) => useApp.getState().pauseVerses(ids, on, day);
 
   const save = () => {
     useApp.getState().updatePassage(passage.id, { tag: tag.trim().replace(/^#/, ""), deck });
@@ -264,7 +269,7 @@ function PassageView({ passageId, day }: { passageId: string; day: Day }) {
   return (
     <DialogContent
       title={passage.ref}
-      description={`${cards.length} ${cards.length === 1 ? "card" : "cards"}, ${describeUnit(passage.unit, passage.size)}${due > 0 ? ` · ${due} due` : ""}. To split it differently, delete it and add it again.`}
+      description={`${cards.length} ${cards.length === 1 ? "card" : "cards"}, ${describeUnit(passage.unit, passage.size)}${due > 0 ? ` · ${due} due` : ""}${paused > 0 ? ` · ${paused} paused` : ""}. To split it differently, delete it and add it again.`}
       footer={
         <>
           <Button variant={confirmDelete ? "destructive" : "ghost"} className="mr-auto text-destructive data-[confirm=true]:text-white" data-confirm={confirmDelete} onClick={remove}>
@@ -294,20 +299,35 @@ function PassageView({ passageId, day }: { passageId: string; day: Day }) {
             </Select>
           </div>
         </div>
-        <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
-          {statuses.map(({ verse, status: s }) => (
-            <li key={verse.id}>
-              <button
-                className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/60 active:bg-muted"
-                onClick={() => openPanel({ kind: "edit", verseId: verse.id })}
-              >
-                <span className="min-w-0 flex-1 truncate font-serif font-semibold">{verse.ref}</span>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{s.phase === "upcoming" ? `Starts ${describeDay(verse.start)}` : describePosition(s)}</span>
-                {s.due && <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground">Due</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Switch a card off to pause it: it isn't reviewed, and holds its place until it's on again.</p>
+            {cards.length > 1 && (
+              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => pause(cards.map((v) => v.id), paused < cards.length)}>
+                {paused < cards.length ? "Pause all" : "Resume all"}
+              </Button>
+            )}
+          </div>
+          <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+            {statuses.map(({ verse, status: s }) => (
+              <li key={verse.id} className="flex items-center">
+                <button
+                  className={cn("flex min-h-12 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left transition-colors hover:bg-muted/60 active:bg-muted", verse.paused && "text-muted-foreground")}
+                  onClick={() => openPanel({ kind: "edit", verseId: verse.id })}
+                >
+                  <span className="min-w-0 flex-1 truncate font-serif font-semibold">{verse.ref}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {verse.paused ? "Paused" : s.phase === "upcoming" ? `Starts ${describeDay(verse.start)}` : describePosition(s)}
+                  </span>
+                  {s.due && <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground">Due</span>}
+                </button>
+                <div className="flex shrink-0 items-center self-stretch px-3">
+                  <Switch checked={!verse.paused} onCheckedChange={(on) => pause([verse.id], !on)} aria-label={`Review ${verse.ref}`} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </DialogContent>
   );

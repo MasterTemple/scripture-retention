@@ -99,13 +99,16 @@ export function cardState(verse: Verse, day: Day, sch: Scheduler & { algorithm: 
 export function verseStatus(verse: Verse, day: Day, sch: Scheduler): Status {
   if (!isAdaptive(sch.algorithm)) return status(verse, day, sch.durations);
   const algorithm = sch.algorithm;
-  if (day < verse.start) return { phase: "upcoming", position: 0, total: 0, scheduled: null, due: false, next: verse.start };
-  const s = cardState(verse, day, { ...sch, algorithm });
+  if (day < verse.start) return { phase: "upcoming", position: 0, total: 0, scheduled: null, due: false, next: verse.paused ? null : verse.start, ...(verse.paused ? { paused: true } : {}) };
+  // Paused, it's held where it was (as placed then, before reviews are logged)
+  const s = cardState(verse, verse.paused && verse.paused < day ? verse.paused : day, { ...sch, algorithm });
   const dueDay = s.due ?? verse.start;
   const due = dueDay <= day;
   const fresh = s.last === null;
   const learning = !fresh && s.due !== null && s.last !== null && s.due <= s.last;
   const phase = fresh || learning || s.interval < 7 ? "daily" : s.interval < 30 ? "weekly" : "monthly";
+  // Paused, it isn't due, however long it's been
+  if (verse.paused) return { phase, position: 0, total: 0, scheduled: null, due: false, next: null, interval: s.interval, learning, fresh, paused: true };
   return { phase, position: 0, total: 0, scheduled: due ? dueDay : null, due, next: due ? null : dueDay, interval: s.interval, learning, fresh };
 }
 

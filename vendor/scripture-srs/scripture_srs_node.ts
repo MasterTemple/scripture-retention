@@ -20,11 +20,12 @@ export interface VerseRecord {
   readonly log: Array<LogItem>;
   readonly deck: string | null;
   readonly passage: string | null;
+  readonly paused: string | null;
 }
 
 
 const VerseRecordCodec: WireCodec<VerseRecord> = {
-  size: (value) => (((((((wireStringSize(value.id) + wireStringSize(value.tag)) + wireStringSize(value.reference)) + wireStringSize(value.start)) + wireOptionalSize(value.last, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireArraySize(value.log, (__boltffiValue0) => LogItemCodec.size(__boltffiValue0))) + wireOptionalSize(value.deck, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireOptionalSize(value.passage, (__boltffiValue0) => wireStringSize(__boltffiValue0))),
+  size: (value) => ((((((((wireStringSize(value.id) + wireStringSize(value.tag)) + wireStringSize(value.reference)) + wireStringSize(value.start)) + wireOptionalSize(value.last, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireArraySize(value.log, (__boltffiValue0) => LogItemCodec.size(__boltffiValue0))) + wireOptionalSize(value.deck, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireOptionalSize(value.passage, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireOptionalSize(value.paused, (__boltffiValue0) => wireStringSize(__boltffiValue0))),
   encode: (writer, value) => {
     writer.writeString(value.id);
     writer.writeString(value.tag);
@@ -42,6 +43,9 @@ const VerseRecordCodec: WireCodec<VerseRecord> = {
     writer.writeOptional(value.passage, (__boltffiValue0) => {
   writer.writeString(__boltffiValue0);
 });
+    writer.writeOptional(value.paused, (__boltffiValue0) => {
+  writer.writeString(__boltffiValue0);
+});
   },
   decode: (reader) => {
     const id = reader.readString();
@@ -52,6 +56,7 @@ const VerseRecordCodec: WireCodec<VerseRecord> = {
     const log = reader.readArray(() => LogItemCodec.decode(reader));
     const deck = reader.readOptional(() => reader.readString());
     const passage = reader.readOptional(() => reader.readString());
+    const paused = reader.readOptional(() => reader.readString());
     return {
       id: id,
       tag: tag,
@@ -61,6 +66,7 @@ const VerseRecordCodec: WireCodec<VerseRecord> = {
       log: log,
       deck: deck,
       passage: passage,
+      paused: paused,
     };
   },
 };

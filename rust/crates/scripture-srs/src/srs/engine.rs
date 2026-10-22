@@ -250,10 +250,9 @@ impl Scheduler {
 
     /// Where a verse is on `day`
     pub fn status(&self, verse: &Verse, day: Day) -> Status {
-        let Some(card) = (day >= verse.start)
-            .then(|| self.card(verse, day))
-            .flatten()
-        else {
+        // Paused, it's held where it was (as placed then, before reviews are logged)
+        let at = verse.paused.map_or(day, |paused| paused.min(day));
+        let Some(card) = (day >= verse.start).then(|| self.card(verse, at)).flatten() else {
             if !self.algorithm.is_adaptive() {
                 return status(verse, day, &self.durations);
             }
@@ -263,7 +262,7 @@ impl Scheduler {
                 total: 0,
                 scheduled: None,
                 due: false,
-                next: Some(verse.start),
+                next: verse.paused.is_none().then_some(verse.start),
                 interval: None,
                 learning: false,
                 fresh: false,
@@ -281,13 +280,16 @@ impl Scheduler {
         } else {
             Phase::Monthly
         };
+        // Paused, it isn't due, however long it's been
+        let due = due && verse.paused.is_none();
+        let held = verse.paused.is_some();
         Status {
             phase,
             position: 0,
             total: 0,
             scheduled: due.then_some(due_day),
             due,
-            next: (!due).then_some(due_day),
+            next: (!due && !held).then_some(due_day),
             interval: Some(s.interval),
             learning,
             fresh,

@@ -3,10 +3,11 @@ import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
-import { Input, Label, Select } from "@/components/ui/primitives";
+import { Input, Label, Select, Switch } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
-import { daysBetween, describeDay, isDay, type Day } from "@/core/dates";
+import { addDays, daysBetween, describeDay, isDay, type Day } from "@/core/dates";
 import { queueStarts } from "@/core/queue";
+import { resumedStart } from "@/core/schedule";
 import { isAdaptive, verseStatus } from "@/core/srs";
 import { DEFAULT_DECK, deckOf, deckScheduler } from "@/core/decks";
 import { schedulersNow, useApp, useScheduler } from "@/state/store";
@@ -28,10 +29,12 @@ export function EditDialog({ verseId, day, queue: queueFirst = false, deck: give
   const [where, setWhere] = useState<Where>(queued || (!verse && queueFirst) ? "queue" : "schedule");
   const [tag, setTag] = useState(existing?.tag ?? "");
   const [ref, setRef] = useState(existing?.ref ?? "");
-  const [start, setStart] = useState<Day>(verse?.start ?? day);
+  // Paused, it's shown where it's held: the start it would have resumed today
+  const held = verse && resumedStart(verse, day);
+  const [start, setStart] = useState<Day>(held ?? day);
   const [date, setDate] = useState<string>(start);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const ids = { tag: useId(), ref: useId(), date: useId(), deck: useId() };
+  const ids = { tag: useId(), ref: useId(), date: useId(), deck: useId(), paused: useId() };
   const decks = useApp((s) => s.decks);
   // A card of a passage: its reference, topic, and deck are the passage's, and it's deleted with it
   const passage = useApp((s) => (verse?.passage ? s.passages.find((p) => p.id === verse.passage) : undefined));
@@ -42,6 +45,7 @@ export function EditDialog({ verseId, day, queue: queueFirst = false, deck: give
   const tracked = adaptive && !!verse?.log?.length;
   const [nextIn, setNextIn] = useState<number | null>(null);
   const [forget, setForget] = useState(false);
+  const [paused, setPaused] = useState(!!verse?.paused);
 
   useEffect(() => setDate(start), [start]);
   // A second tap deletes; the first only asks, and lapses
@@ -60,11 +64,17 @@ export function EditDialog({ verseId, day, queue: queueFirst = false, deck: give
     const fields = { tag: tag.trim().replace(/^#/, ""), ref: ref.trim().replace(/\s+/g, " "), deck: deck === DEFAULT_DECK ? undefined : deck };
     if (where === "schedule") {
       if (verse) {
+        // Resumed before it's moved, and paused after, so a start chosen here is the one kept
+        if (!paused && verse.paused) app.pauseVerses([verse.id], false, day);
         app.updateVerse(verse.id, fields);
         if (tracked) {
           if (forget) app.placeVerse(verse.id, 0, day, false);
           else if (nextIn !== null) app.placeVerse(verse.id, nextIn, day, false);
-        } else if (start !== verse.start) app.moveVerse(verse.id, start, day, false);
+        } else if (start !== held) {
+          // Still paused, it's moved to where it's to resume (its schedule then moves on by the days since it was paused)
+          app.moveVerse(verse.id, paused && verse.paused ? addDays(start, -daysBetween(verse.paused, day)) : start, day, false);
+        }
+        if (paused && !verse.paused) app.pauseVerses([verse.id], true, day);
       } else if (queued) {
         app.updateQueued(queued.id, fields);
         app.startQueued(queued.id, start);
@@ -228,6 +238,21 @@ export function EditDialog({ verseId, day, queue: queueFirst = false, deck: give
             {adaptive ? <AdaptiveSummary verse={{ id: verse?.id ?? "", tag, ref, start, last: verse?.last, deck }} day={day} /> : <StartSummary start={start} day={day} durations={sch.durations} />}
             {verse?.log && <ReviewHistory log={verse.log} />}
           </>
+        )}
+        {verse && where === "schedule" && (
+          <div className="flex items-center justify-between gap-4 rounded-xl border px-4 py-3">
+            <Label htmlFor={ids.paused} className="block space-y-1">
+              <span className="block">Paused</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                {!paused
+                  ? "Stop reviewing it for now, without it moving on."
+                  : verse.paused
+                    ? `Since ${describeDay(verse.paused)}: not reviewed, and held where it was. Resumed, it picks up there.`
+                    : "Not reviewed, and held where it is, until it's resumed."}
+              </span>
+            </Label>
+            <Switch id={ids.paused} checked={paused} onCheckedChange={setPaused} />
+          </div>
         )}
         {verse?.last && <p className="text-xs text-muted-foreground">Last reviewed {describeDay(verse.last)}</p>}
         {/* Enter in a field saves */}

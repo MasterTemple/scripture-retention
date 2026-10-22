@@ -47,11 +47,16 @@ fn pill(phase: Phase, adaptive: bool) -> Span<'static> {
     )
 }
 
-fn position(s: &Status, start: scripture_srs::Day) -> String {
-    if s.phase == Phase::Upcoming {
-        format!("Starts {start}")
+fn position(s: &Status, verse: &scripture_srs::Verse) -> String {
+    let at = if s.phase == Phase::Upcoming {
+        format!("Starts {}", verse.start)
     } else {
         describe_position(s)
+    };
+    if verse.paused.is_some() {
+        format!("Paused · {at}")
+    } else {
+        at
     }
 }
 
@@ -240,7 +245,7 @@ fn draw_review(frame: &mut Frame, area: Rect, app: &mut App, scheduler: &Schedul
             pill(status.phase, adaptive),
             Span::raw(" "),
         ]))
-        .title(Line::from(format!(" {} ", position(&status, verse.start))).right_aligned())
+        .title(Line::from(format!(" {} ", position(&status, &verse))).right_aligned())
         .padding(ratatui::widgets::Padding::new(2, 2, 1, 0));
     frame.render_widget(
         Paragraph::new(Text::from(lines))
@@ -377,7 +382,7 @@ fn draw_verses(frame: &mut Frame, area: Rect, app: &App) {
                     Style::new().fg(ACCENT),
                 )),
                 Cell::from(v.reference.clone()),
-                Cell::from(Span::raw(position(&s, v.start)).dim()),
+                Cell::from(Span::raw(position(&s, v)).dim()),
                 Cell::from(if s.due {
                     Span::styled(" Due ", Style::new().fg(Color::Black).bg(ACCENT))
                 } else {
@@ -421,9 +426,11 @@ fn draw_detail(frame: &mut Frame, area: Rect, app: &App, index: usize) {
     let s = scheduler.status(v, app.day);
     let mut lines = vec![
         Line::from(v.reference.clone()).bold(),
-        Line::from(position(&s, v.start)),
+        Line::from(position(&s, v)),
         Line::from(if s.due {
             "Due today".to_string()
+        } else if let Some(paused) = v.paused {
+            format!("Paused since {paused}")
         } else {
             s.next.map_or(String::new(), |n| format!("Next {n}"))
         })

@@ -51,6 +51,8 @@ function verses(): Verse[] {
       verse.log = log;
       verse.last = log.at(-1)!.day;
     }
+    // Some paused, between the days looked at (without drawing on the random numbers, so the other cases stay as they were)
+    if (i % 6 === 5) verse.paused = addDays(verse.last ?? start, 10);
     out.push(verse);
   }
   return out;

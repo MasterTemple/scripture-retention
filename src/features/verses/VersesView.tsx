@@ -150,7 +150,7 @@ export function VersesView({ day }: { day: Day }) {
                 {group.map(({ verse, status: s }) => (
                   <li key={verse.id}>
                     <button
-                      className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted"
+                      className={cn("flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted", verse.paused && "opacity-60")}
                       onClick={() => openPanel({ kind: "edit", verseId: verse.id })}
                     >
                       <div className="min-w-0 flex-1">
@@ -160,6 +160,7 @@ export function VersesView({ day }: { day: Day }) {
                       <div className="shrink-0 text-right text-xs text-muted-foreground">
                         <div className="tabular-nums">{s.phase === "upcoming" ? `Starts ${describeDay(verse.start)}` : describePosition(s)}</div>
                         {s.due && <div className="mt-1 inline-block rounded-full bg-accent px-2 py-0.5 font-semibold text-accent-foreground">Due</div>}
+                        {verse.paused && <div className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 font-semibold">Paused</div>}
                       </div>
                     </button>
                   </li>
@@ -241,6 +242,7 @@ function PassagesSection({ passages, day, schedulerFor }: { passages: PassageGro
           const cards = verses.filter((v) => v.passage === p.id);
           const statuses = cards.map((v) => verseStatus(v, day, schedulerFor(v)));
           const due = statuses.filter((s) => s.due).length;
+          const paused = cards.filter((v) => v.paused).length;
           const next = statuses.flatMap((s) => (s.next && s.next > day ? [s.next] : [])).sort()[0];
           return (
             <li key={p.id}>
@@ -253,6 +255,7 @@ function PassagesSection({ passages, day, schedulerFor }: { passages: PassageGro
                   <div className="truncate font-serif text-base font-semibold">{p.ref}</div>
                   <div className="truncate text-xs text-muted-foreground">
                     {cards.length} {cards.length === 1 ? "card" : "cards"}, {describeUnit(p.unit, p.size)}
+                    {paused > 0 && `, ${paused === cards.length ? "all" : paused} paused`}
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-xs text-muted-foreground">

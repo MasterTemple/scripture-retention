@@ -1,5 +1,5 @@
-import { AlertCircleIcon, BookPlusIcon, BookXIcon, CheckCircle2Icon, ChevronLeftIcon, ListPlusIcon, Loader2Icon, MoveIcon, RefreshCwIcon, RotateCcwIcon } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { AlertCircleIcon, BookPlusIcon, BookXIcon, CheckCircle2Icon, ChevronLeftIcon, ChevronsDownIcon, ListPlusIcon, Loader2Icon, MoveIcon, RefreshCwIcon, RotateCcwIcon } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd, Progress } from "@/components/ui/primitives";
 import { describeDay, type Day } from "@/core/dates";
@@ -8,7 +8,7 @@ import { ALGORITHM_INFO, dueVerses, GRADE_NAMES, gradesFor, isAdaptive, preview,
 import { PHASE_STYLE } from "@/lib/phase";
 import { swipeHandlers } from "@/lib/swipe";
 import { cn } from "@/lib/utils";
-import { back, currentVerse, forward, gradedAt, next, resetDay, reveal, startReview, useReview } from "@/state/review";
+import { back, currentVerse, gradedAt, hasMore, next, resetDay, reveal, showAll, showNext, startReview, step, useReview } from "@/state/review";
 import { deckOf, deckScheduler } from "@/core/decks";
 import { useApp, useScheduler, useSchedulers, useTranslation } from "@/state/store";
 import { prefetch, usePassageText } from "@/state/text";
@@ -81,7 +81,10 @@ function DeckChips({ day }: { day: Day }) {
   );
 }
 
-/** Space or Enter (or →) continues and goes on (Good); 1–4 grade, in the buttons' order; ← goes back; M moves */
+/**
+ * Space or Enter (or →) continues, shows the next verse (verse by verse), and goes on (Good); 1–4
+ * grade, in the buttons' order; ← goes back; M moves
+ */
 function useReviewKeys(verse: Verse | null, day: Day) {
   const schedulerFor = useSchedulers();
   const algorithm = verse ? schedulerFor(verse).algorithm : "fixed";
@@ -97,11 +100,10 @@ function useReviewKeys(verse: Verse | null, day: Day) {
         next(day, graded);
       } else if (e.key === " " || e.key === "Enter" || e.key === "ArrowRight") {
         e.preventDefault();
-        if (revealed) forward(day);
-        else reveal();
+        step(day);
       } else if (e.key === "ArrowLeft") {
         back();
-      } else if (e.key.toLowerCase() === "m" && revealed) {
+      } else if (e.key.toLowerCase() === "m") {
         openPanel({ kind: "move", verseId: verse.id });
       }
     };
@@ -114,17 +116,18 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
   const sch = useSchedulers()(verse);
   const passage = useApp((s) => (verse.passage ? s.passages.find((p) => p.id === verse.passage) : undefined));
   const { index, queue, revealed } = useReview();
+  const more = useReview(hasMore);
   // The topic and reference where they'll be once the verse shows, so nothing moves on revealing
   const steady = useApp((s) => s.settings.steadyCard);
   const top = revealed || steady;
   const prompt = useApp((s) => s.settings.showPrompt);
   const s = verseStatus(verse, day, sch);
+  const edit = () => openPanel({ kind: "edit", verseId: verse.id });
   const swipe = useMemo(
     () =>
       swipeHandlers((direction) => {
         if (direction === "right") return back();
-        if (useReview.getState().revealed) forward(day);
-        else reveal();
+        step(day);
       }),
     [day],
   );
@@ -142,27 +145,52 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
           </span>
         </div>
         <PhasePill phase={s.phase} adaptive={isAdaptive(sch.algorithm)} />
-        <span className="text-right tabular-nums">{describePosition(s)}</span>
+        {/* Where it is in its schedule, tapped to move it */}
+        <button
+          className="-mr-2 inline-flex items-center gap-1.5 justify-self-end rounded-md px-2 py-2 tabular-nums transition-colors hover:bg-muted hover:text-foreground"
+          onClick={() => openPanel({ kind: "move", verseId: verse.id })}
+          title={isAdaptive(sch.algorithm) ? "Reschedule (M)" : "Move (M)"}
+        >
+          {describePosition(s)}
+          <MoveIcon className="size-3.5" />
+        </button>
       </div>
       <Progress value={index / queue.length} />
 
       <div
         {...swipe}
-        role={revealed ? undefined : "button"}
-        tabIndex={revealed ? undefined : -1}
-        aria-label={revealed ? undefined : "Show the verse"}
-        onClick={revealed ? undefined : reveal}
+        role={revealed && !more ? undefined : "button"}
+        tabIndex={revealed && !more ? undefined : -1}
+        aria-label={!revealed ? "Show the verse" : more ? "Show the next verse" : undefined}
+        onClick={!revealed ? reveal : more ? showNext : undefined}
         className={cn(
           "flex min-h-[min(22rem,55dvh)] flex-1 animate-fade-up flex-col rounded-2xl border bg-card shadow-sm select-none",
-          !revealed && "cursor-pointer transition-transform active:scale-[0.995]",
+          (!revealed || more) && "cursor-pointer transition-transform active:scale-[0.995]",
           !top && "items-center justify-center text-center",
         )}
       >
         {/* The topic and reference stay put while a long passage scrolls below them */}
-        <div className={cn("px-5 sm:px-8", top ? "sticky top-[calc(var(--header-h)+env(safe-area-inset-top))] z-10 rounded-t-2xl border-b bg-card/95 py-4 backdrop-blur" : "py-8")}>
-          {passage && <div className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{passage.ref}</div>}
-          {(verse.tag || !passage) && <div className={cn("font-semibold break-words text-primary", top ? "text-xl" : "text-2xl sm:text-3xl")}>#{verse.tag || "?"}</div>}
-          <div className={cn("font-serif font-semibold tracking-tight", top ? "text-2xl" : "mt-2 text-3xl sm:text-4xl")}>{verse.ref}</div>
+        <div data-card-head className={cn("px-5 sm:px-8", top ? "sticky top-[calc(var(--header-h)+env(safe-area-inset-top))] z-10 rounded-t-2xl border-b bg-card/95 py-4 backdrop-blur" : "py-8")}>
+          {/* Each tapped opens it to edit: the passage, or the verse */}
+          {passage && (
+            <div className="mb-1">
+              <Tappable onTap={() => openPanel({ kind: "passage", passageId: passage.id })} label={`Open ${passage.ref}`} className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {passage.ref}
+              </Tappable>
+            </div>
+          )}
+          {(verse.tag || !passage) && (
+            <div>
+              <Tappable onTap={edit} label={`Edit ${verse.ref}`} className={cn("font-semibold break-words text-primary", top ? "text-xl" : "text-2xl sm:text-3xl")}>
+                #{verse.tag || "?"}
+              </Tappable>
+            </div>
+          )}
+          <div className={top ? undefined : "mt-2"}>
+            <Tappable onTap={edit} label={`Edit ${verse.ref}`} className={cn("font-serif font-semibold tracking-tight", top ? "text-2xl" : "text-3xl sm:text-4xl")}>
+              {verse.ref}
+            </Tappable>
+          </div>
         </div>
         {revealed ? (
           <VerseText reference={verse.ref} />
@@ -174,18 +202,22 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
       </div>
 
       {/* In reach of a thumb: above the tab bar on a phone */}
-      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 -mx-4 bg-gradient-to-t from-background from-70% to-transparent px-4 pt-4 pb-2 md:bottom-0 md:pb-4">
-        {revealed && isAdaptive(sch.algorithm) ? (
-          <GradeButtons verse={verse} day={day} />
-        ) : revealed ? (
+      <div data-card-actions className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 -mx-4 bg-gradient-to-t from-background from-70% to-transparent px-4 pt-4 pb-2 md:bottom-0 md:pb-4">
+        {more ? (
           <div className="grid grid-cols-[auto_1fr] gap-3">
-            <Button variant="outline" size="lg" className="h-14 px-5 text-base" onClick={() => openPanel({ kind: "move", verseId: verse.id })}>
-              <MoveIcon /> Move
+            <Button variant="outline" size="lg" className="h-14 px-5 text-base" onClick={showAll}>
+              <ChevronsDownIcon /> Show all
             </Button>
-            <Button size="lg" className="h-14 text-base" onClick={() => forward(day)}>
-              Next <Kbd className="ml-1 hidden border-white/20 bg-white/15 text-primary-foreground md:inline-flex">Space</Kbd>
+            <Button size="lg" className="h-14 text-base" onClick={showNext}>
+              Next verse <Kbd className="ml-1 hidden border-white/20 bg-white/15 text-primary-foreground md:inline-flex">Space</Kbd>
             </Button>
           </div>
+        ) : revealed && isAdaptive(sch.algorithm) ? (
+          <GradeButtons verse={verse} day={day} />
+        ) : revealed ? (
+          <Button size="lg" className="h-14 w-full text-base" onClick={() => step(day)}>
+            Next <Kbd className="ml-1 hidden border-white/20 bg-white/15 text-primary-foreground md:inline-flex">Space</Kbd>
+          </Button>
         ) : (
           <Button size="lg" className="h-14 w-full text-base" onClick={reveal}>
             Continue <Kbd className="ml-1 hidden border-white/20 bg-white/15 text-primary-foreground md:inline-flex">Space</Kbd>
@@ -193,6 +225,23 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Text on the card that opens something when tapped, without the tap reaching the card (which shows the verse) */
+function Tappable({ onTap, label, className, children }: { onTap: () => void; label: string; className?: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onTap();
+      }}
+      className={cn("-mx-1 max-w-full rounded-md px-1 [text-align:inherit] decoration-current/30 decoration-dashed underline-offset-4 transition-colors hover:underline", className)}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -205,31 +254,26 @@ const GRADE_STYLE: Record<Grade, string> = {
 
 /**
  * How well the verse came back, each grade with when it'd be seen next (`<10m`: again in this
- * sitting), and rescheduling by hand
+ * sitting)
  */
 function GradeButtons({ verse, day }: { verse: Verse; day: Day }) {
   const sch = useSchedulers()(verse);
   const at = useReview(gradedAt);
   const options = preview(verse, day, sch, at);
   return (
-    <div className="flex gap-2">
-      <Button variant="outline" size="icon" className="h-14 w-12 shrink-0" onClick={() => openPanel({ kind: "move", verseId: verse.id })} aria-label="Reschedule">
-        <MoveIcon />
-      </Button>
-      <div className={cn("grid flex-1 gap-2", options.length === 4 ? "grid-cols-4" : "grid-cols-2")}>
-        {options.map((o, i) => (
-          <Button
-            key={o.grade}
-            variant={o.grade === 3 ? "default" : "outline"}
-            className="h-14 flex-col gap-0 px-1 text-base leading-tight"
-            onClick={() => next(day, o.grade)}
-            title={`${GRADE_NAMES[o.grade]} (${i + 1})`}
-          >
-            <span className={cn("font-semibold", o.grade !== 3 && GRADE_STYLE[o.grade])}>{GRADE_NAMES[o.grade]}</span>
-            <span className={cn("text-xs font-normal tabular-nums", o.grade === 3 ? "text-primary-foreground/80" : "text-muted-foreground")}>{o.label}</span>
-          </Button>
-        ))}
-      </div>
+    <div className={cn("grid gap-2", options.length === 4 ? "grid-cols-4" : "grid-cols-2")}>
+      {options.map((o, i) => (
+        <Button
+          key={o.grade}
+          variant={o.grade === 3 ? "default" : "outline"}
+          className="h-14 flex-col gap-0 px-1 text-base leading-tight"
+          onClick={() => next(day, o.grade)}
+          title={`${GRADE_NAMES[o.grade]} (${i + 1})`}
+        >
+          <span className={cn("font-semibold", o.grade !== 3 && GRADE_STYLE[o.grade])}>{GRADE_NAMES[o.grade]}</span>
+          <span className={cn("text-xs font-normal tabular-nums", o.grade === 3 ? "text-primary-foreground/80" : "text-muted-foreground")}>{o.label}</span>
+        </Button>
+      ))}
     </div>
   );
 }
@@ -243,11 +287,23 @@ export function PhasePill({ phase, adaptive = false, className }: { phase: Phase
   );
 }
 
-/** The verse's text in the chosen translation */
+/** The verse's text in the chosen translation (verse by verse, as many of its verses as show) */
 function VerseText({ reference }: { reference: string }) {
   const translation = useTranslation();
   const scale = useApp((s) => s.settings.textScale);
   const [state, retry] = usePassageText(reference, translation);
+  const shown = useReview((r) => r.shown);
+  const length = state.status === "ready" ? state.passages.reduce((n, p) => n + p.verses.length, 0) : null;
+  // How many verses there are to show, for the keys and buttons that show the next
+  useEffect(() => {
+    useReview.setState({ length });
+    return () => useReview.setState({ length: null });
+  }, [length]);
+  // Each verse shown in turn comes into view
+  const newest = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (shown > 1 && Number.isFinite(shown)) bringIntoView(newest.current);
+  }, [shown]);
 
   if (state.status === "loading") {
     return (
@@ -276,24 +332,54 @@ function VerseText({ reference }: { reference: string }) {
     );
   }
   const several = state.passages.length > 1;
+  // Where each passage's verses begin among all the card's, to show only the first `shown`
+  const offsets = state.passages.map((_, i) => state.passages.slice(0, i).reduce((n, p) => n + p.verses.length, 0));
+  const left = length! - Math.min(shown, length!);
   return (
-    <div className="space-y-5 px-5 py-5 select-text sm:px-8 sm:py-6" style={{ fontSize: `${scale}em` }}>
-      {state.passages.map((p) => (
-        <div key={p.reference}>
-          {several && <div className="mb-1 text-[0.7em] font-semibold tracking-wide text-muted-foreground uppercase">{p.reference}</div>}
-          <p className="font-serif text-[1.3rem] leading-[1.7] text-pretty sm:text-[1.45rem]">
-            {p.verses.map((v, i) => (
-              <span key={i}>
-                {v.label && <sup className="mr-0.5 font-sans text-[0.55em] font-semibold text-muted-foreground">{v.label}</sup>}
-                {v.text}{" "}
-              </span>
-            ))}
-          </p>
-        </div>
-      ))}
-      <p className="text-xs text-muted-foreground">{translation.abbreviation}</p>
+    <div className="space-y-5 px-5 py-5 sm:px-8 sm:py-6" style={{ fontSize: `${scale}em` }}>
+      {state.passages.map((p, n) =>
+        offsets[n]! >= shown ? null : (
+          <div key={p.reference} className="select-text">
+            {several && <div className="mb-1 text-[0.7em] font-semibold tracking-wide text-muted-foreground uppercase">{p.reference}</div>}
+            <p className="font-serif text-[1.3rem] leading-[1.7] text-pretty sm:text-[1.45rem]">
+              {p.verses.slice(0, shown - offsets[n]!).map((v, i) => (
+                <span key={i} ref={offsets[n]! + i === shown - 1 ? newest : undefined} className={cn(left > 0 && "animate-fade-up")}>
+                  {v.label && <sup className="mr-0.5 font-sans text-[0.55em] font-semibold text-muted-foreground">{v.label}</sup>}
+                  {v.text}{" "}
+                </span>
+              ))}
+            </p>
+          </div>
+        ),
+      )}
+      {left > 0 ? (
+        <p className="rounded-xl border border-dashed px-4 py-3 text-center text-sm text-muted-foreground">
+          Tap for the next verse · {left} more
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">{translation.abbreviation}</p>
+      )}
     </div>
   );
+}
+
+/**
+ * Scrolls a verse just shown into the space between the card's topic and reference and its
+ * buttons: its bottom just above the buttons, or, too tall to fit (or above that space), its top
+ * just below the reference. Already in view, it stays where it is.
+ */
+function bringIntoView(el: HTMLElement | null) {
+  const head = document.querySelector<HTMLElement>("[data-card-head]");
+  if (!el || !head) return;
+  // The topic and reference stick only once the page scrolls, so a verse is aimed at where they'll stick
+  const now = head.getBoundingClientRect().bottom;
+  const stuck = parseFloat(getComputedStyle(head).top) + head.offsetHeight;
+  const top = Number.isNaN(stuck) ? now : stuck;
+  const bottom = document.querySelector("[data-card-actions]")?.getBoundingClientRect().top ?? window.innerHeight;
+  const gap = 16;
+  const r = el.getBoundingClientRect();
+  const by = r.height > bottom - top - 2 * gap || r.top < now + gap ? r.top - top - gap : r.bottom > bottom - gap ? r.bottom - bottom + gap : 0;
+  if (Math.abs(by) >= 1) window.scrollBy({ top: by, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 
 function Done({ day }: { day: Day }) {

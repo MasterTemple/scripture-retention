@@ -79,7 +79,7 @@ export function SettingsDialog() {
 function ReviewTab() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
-  const ids = { day: useId(), steady: useId(), prompt: useId() };
+  const ids = { day: useId(), steady: useId(), prompt: useId(), verseByVerse: useId() };
   return (
     <>
       <Section title="Cards">
@@ -103,6 +103,13 @@ function ReviewTab() {
         </Row>
         <Row title="Show the prompt" description="“Say the topic, the reference, and the verse aloud” on a card before its verse shows." htmlFor={ids.prompt}>
           <Switch id={ids.prompt} checked={settings.showPrompt} onCheckedChange={(showPrompt) => update({ showPrompt })} />
+        </Row>
+        <Row
+          title="One verse at a time"
+          description={settings.verseByVerse ? "A card of several verses shows its first, then the next on each tap." : "A card shows all its verses at once."}
+          htmlFor={ids.verseByVerse}
+        >
+          <Switch id={ids.verseByVerse} checked={settings.verseByVerse} onCheckedChange={(verseByVerse) => update({ verseByVerse })} />
         </Row>
         <Row title="Text size" description="The verse's, once it shows.">
           <Stepper

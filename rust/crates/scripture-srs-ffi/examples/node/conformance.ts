@@ -5,7 +5,7 @@ import { ScriptureSrs, type VerseRecord } from "scripture-srs";
 
 const cases = JSON.parse(readFileSync(new URL("../../../scripture-srs/tests/conformance.json", import.meta.url), "utf8"));
 const srs = ScriptureSrs.new();
-const verses: VerseRecord[] = cases.verses.map((v: any) => ({ id: v.id, tag: v.tag, reference: v.ref, start: v.start, last: v.last ?? null, log: [], deck: null, passage: null }));
+const verses: VerseRecord[] = cases.verses.map((v: any) => ({ id: v.id, tag: v.tag, reference: v.ref, start: v.start, last: v.last ?? null, log: [], deck: null, passage: null, paused: v.paused ?? null }));
 // The log goes through readVerses, which reads the web app's JSON
 const logged = srs.readVerses(JSON.stringify(cases.verses));
 const phases = ["daily", "weekly", "monthly", "upcoming", "retained"];

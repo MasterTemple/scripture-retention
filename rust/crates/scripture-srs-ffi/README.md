@@ -56,7 +56,7 @@ fsrs = srs.scheduler().with_algorithm(Algorithm.FSRS)
 learning steps do); `review` returns the verse with the review logged.
 
 ```ts
-let verse: VerseRecord = { id: "1", tag: "love", reference: "John 3:16", start: "2026-10-21", last: null, log: [], deck: null, passage: null };
+let verse: VerseRecord = { id: "1", tag: "love", reference: "John 3:16", start: "2026-10-21", last: null, log: [], deck: null, passage: null, paused: null };
 fsrs.preview(verse, "2026-10-21").map((o) => o.label); // → ["<1m","<6m","<10m","10d"]
 verse = fsrs.review(verse, Grade.Good, "2026-10-21");
 fsrs.status(verse, "2026-10-21").description; // → "Learning"
@@ -66,7 +66,7 @@ fsrs.memory(verse, "2026-10-21").map((m) => `${m.label}: ${m.value}`); // → ["
 ```
 
 ```python
-verse = VerseRecord(id="1", tag="love", reference="John 3:16", start="2026-10-21", last=None, log=[], deck=None, passage=None)
+verse = VerseRecord(id="1", tag="love", reference="John 3:16", start="2026-10-21", last=None, log=[], deck=None, passage=None, paused=None)
 [o.label for o in fsrs.preview(verse, "2026-10-21")]  # → ["<1m","<6m","<10m","10d"]
 verse = fsrs.review(verse, Grade.GOOD, "2026-10-21")
 fsrs.status(verse, "2026-10-21").description  # → "Learning"
@@ -81,14 +81,14 @@ A verse with no reviews logged starts where the fixed schedule has it, so a vers
 reviews comes into FSRS every 7 days.
 
 ```ts
-const psalm: VerseRecord = { id: "2", tag: "word", reference: "Psalm 119:11", start: "2026-05-01", last: null, log: [], deck: null, passage: null };
+const psalm: VerseRecord = { id: "2", tag: "word", reference: "Psalm 119:11", start: "2026-05-01", last: null, log: [], deck: null, passage: null, paused: null };
 srs.scheduler().status(psalm, "2026-10-21").description; // → "Week 18 of 31"
 fsrs.status(psalm, "2026-10-21").description; // → "Every 7 days"
 fsrs.due([verse, psalm], "2026-10-21").map((v) => v.reference); // → ["Psalm 119:11"]
 ```
 
 ```python
-psalm = VerseRecord(id="2", tag="word", reference="Psalm 119:11", start="2026-05-01", last=None, log=[], deck=None, passage=None)
+psalm = VerseRecord(id="2", tag="word", reference="Psalm 119:11", start="2026-05-01", last=None, log=[], deck=None, passage=None, paused=None)
 srs.scheduler().status(psalm, "2026-10-21").description  # → "Week 18 of 31"
 fsrs.status(psalm, "2026-10-21").description  # → "Every 7 days"
 [v.reference for v in fsrs.due([verse, psalm], "2026-10-21")]  # → ["Psalm 119:11"]
@@ -150,7 +150,7 @@ it from a worker; under 8 reviews the parameters stay the defaults.
 
 ```ts
 const day = (n: number) => new Date(Date.UTC(2025, 0, 1 + n)).toISOString().slice(0, 10);
-const graded: VerseRecord[] = Array.from({ length: 40 }, (_, i) => ({ id: `${i}`, tag: "", reference: "Psalm 1:1", start: day(i), last: null, deck: null, passage: null,
+const graded: VerseRecord[] = Array.from({ length: 40 }, (_, i) => ({ id: `${i}`, tag: "", reference: "Psalm 1:1", start: day(i), last: null, deck: null, passage: null, paused: null,
   log: [0, 1, 4, 11, 26, 56].map((n) => ({ tag: "Review" as const, day: day(i + n), grade: (i + n) % 7 === 0 ? Grade.Again : Grade.Good })) }));
 const fit = srs.optimizeFsrs(graded);
 [fit.reviews, fit.verses, fit.params.length]; // → [200,40,21]
@@ -160,7 +160,7 @@ const fit = srs.optimizeFsrs(graded);
 from datetime import date, timedelta
 from scripture_srs import LogItemReview
 day = lambda n: (date(2025, 1, 1) + timedelta(days=n)).isoformat()
-graded = [VerseRecord(id=str(i), tag="", reference="Psalm 1:1", start=day(i), last=None, deck=None, passage=None,
+graded = [VerseRecord(id=str(i), tag="", reference="Psalm 1:1", start=day(i), last=None, deck=None, passage=None, paused=None,
     log=[LogItemReview(day=day(i + n), grade=Grade.AGAIN if (i + n) % 7 == 0 else Grade.GOOD) for n in (0, 1, 4, 11, 26, 56)]) for i in range(40)]
 fit = srs.optimize_fsrs(graded)
 [fit.reviews, fit.verses, len(fit.params)]  # → [200,40,21]

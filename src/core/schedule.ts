@@ -20,6 +20,8 @@ export interface Verse {
   deck?: string;
   /** The passage it's a card of, added and deleted with it */
   passage?: string;
+  /** The day it was paused: never due until it's resumed, and held where it was then */
+  paused?: Day;
 }
 
 /** The reviewing phases a verse goes through, in order */
@@ -81,9 +83,12 @@ export interface Status {
   learning?: boolean;
   /** Under an adaptive algorithm: never reviewed */
   fresh?: boolean;
+  /** Paused: where it was when paused, and not due */
+  paused?: boolean;
 }
 
 export function status(verse: Verse, day: Day, durations: Durations): Status {
+  if (verse.paused) return { ...status({ ...verse, paused: undefined }, verse.paused < day ? verse.paused : day, durations), due: false, next: null, paused: true };
   const b = boundaries(verse.start, durations);
   const reviewed = (scheduled: Day) => verse.last !== undefined && verse.last >= scheduled;
   if (day < b.daily) {
@@ -127,6 +132,15 @@ export function startFor(bucket: Bucket, position: number, day: Day, durations: 
     if (boundaries(start, durations).monthly === monthly) return start;
   }
   return guess;
+}
+
+/**
+ * The start that has a verse resumed on `day` pick up where it was when paused: its schedule
+ * moves on by the days it was paused, so it's at the review it was on then (due again, unless
+ * it's resumed the day it was paused)
+ */
+export function resumedStart(verse: Verse, day: Day): Day {
+  return verse.paused && verse.paused < day ? addDays(verse.start, daysBetween(verse.paused, day)) : verse.start;
 }
 
 export type Order = "phase" | "shuffle";

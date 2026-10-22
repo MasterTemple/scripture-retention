@@ -10,6 +10,7 @@ export interface VerseRecord {
     readonly log: Array<LogItem>;
     readonly deck: string | null;
     readonly passage: string | null;
+    readonly paused: string | null;
 }
 export interface VerseStatus {
     readonly phase: Phase;

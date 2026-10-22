@@ -143,6 +143,8 @@ pub struct VerseRecord {
     pub deck: Option<String>,
     /// The passage it's a card of, by id (a book or chapters added as one)
     pub passage: Option<String>,
+    /// The day it was paused: never due until it's resumed, and held where it was then
+    pub paused: Option<String>,
 }
 
 /// Where a verse is on a day
@@ -273,6 +275,7 @@ impl TryFrom<VerseRecord> for Verse {
             reference: v.reference,
             deck: v.deck,
             passage: v.passage,
+            paused: v.paused.as_deref().map(day).transpose()?,
         })
     }
 }
@@ -302,6 +305,7 @@ impl From<Verse> for VerseRecord {
             log,
             deck: v.deck,
             passage: v.passage,
+            paused: v.paused.map(|d| d.to_string()),
         }
     }
 }

@@ -40,6 +40,12 @@ pub struct Verse {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub passage: Option<String>,
+    /// The day it was paused: never due until it's resumed, and held where it was then
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub paused: Option<Day>,
 }
 
 impl Verse {
@@ -59,6 +65,17 @@ impl Verse {
             log: Vec::new(),
             deck: None,
             passage: None,
+            paused: None,
+        }
+    }
+
+    /// The start that has a verse resumed on `day` pick up where it was when paused: its
+    /// schedule moves on by the days it was paused, so it's at the review it was on then (due
+    /// again, unless it's resumed the day it was paused)
+    pub fn resumed_start(&self, day: Day) -> Day {
+        match self.paused {
+            Some(paused) if paused < day => self.start.add_days(paused.days_until(day)),
+            _ => self.start,
         }
     }
 }
@@ -206,6 +223,17 @@ pub struct Status {
 
 /// Where a verse is on `day` in the fixed schedule
 pub fn status(verse: &Verse, day: Day, d: &Durations) -> Status {
+    if let Some(paused) = verse.paused {
+        let held = Verse {
+            paused: None,
+            ..verse.clone()
+        };
+        return Status {
+            due: false,
+            next: None,
+            ..status(&held, day.min(paused), d)
+        };
+    }
     let b = boundaries(verse.start, d);
     let reviewed = |scheduled: Day| verse.last.is_some_and(|last| last >= scheduled);
     let make = |phase, position, total, scheduled: Option<Day>, due, next| Status {
@@ -412,6 +440,33 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_paused_verse_is_held_where_it_was_and_picks_up_there() {
+        let d = Durations::default();
+        let paused = Verse {
+            paused: Some(day("2026-01-10")),
+            ..verse("2026-01-01", Some("2026-01-09"))
+        };
+        let s = status(&paused, day("2026-03-01"), &d);
+        assert_eq!(
+            (s.phase, s.position, s.due, s.next),
+            (Phase::Daily, 10, false, None)
+        );
+        let resumed = paused
+            .clone()
+            .with_start(paused.resumed_start(day("2026-03-01")));
+        let s = status(
+            &Verse {
+                paused: None,
+                ..resumed
+            },
+            day("2026-03-01"),
+            &d,
+        );
+        assert_eq!((s.phase, s.position, s.due), (Phase::Daily, 10, true));
+        assert_eq!(paused.resumed_start(day("2026-01-10")), day("2026-01-01"));
     }
 
     impl Verse {

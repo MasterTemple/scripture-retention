@@ -7,7 +7,7 @@ const _thisDir = dirname(fileURLToPath(import.meta.url));
 const _wasmPath = join(_thisDir, "scripture_srs_bg.wasm");
 const _callbackImports = {};
 const VerseRecordCodec = {
-    size: (value) => (((((((wireStringSize(value.id) + wireStringSize(value.tag)) + wireStringSize(value.reference)) + wireStringSize(value.start)) + wireOptionalSize(value.last, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireArraySize(value.log, (__boltffiValue0) => LogItemCodec.size(__boltffiValue0))) + wireOptionalSize(value.deck, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireOptionalSize(value.passage, (__boltffiValue0) => wireStringSize(__boltffiValue0))),
+    size: (value) => ((((((((wireStringSize(value.id) + wireStringSize(value.tag)) + wireStringSize(value.reference)) + wireStringSize(value.start)) + wireOptionalSize(value.last, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireArraySize(value.log, (__boltffiValue0) => LogItemCodec.size(__boltffiValue0))) + wireOptionalSize(value.deck, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireOptionalSize(value.passage, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireOptionalSize(value.paused, (__boltffiValue0) => wireStringSize(__boltffiValue0))),
     encode: (writer, value) => {
         writer.writeString(value.id);
         writer.writeString(value.tag);
@@ -25,6 +25,9 @@ const VerseRecordCodec = {
         writer.writeOptional(value.passage, (__boltffiValue0) => {
             writer.writeString(__boltffiValue0);
         });
+        writer.writeOptional(value.paused, (__boltffiValue0) => {
+            writer.writeString(__boltffiValue0);
+        });
     },
     decode: (reader) => {
         const id = reader.readString();
@@ -35,6 +38,7 @@ const VerseRecordCodec = {
         const log = reader.readArray(() => LogItemCodec.decode(reader));
         const deck = reader.readOptional(() => reader.readString());
         const passage = reader.readOptional(() => reader.readString());
+        const paused = reader.readOptional(() => reader.readString());
         return {
             id: id,
             tag: tag,
@@ -44,6 +48,7 @@ const VerseRecordCodec = {
             log: log,
             deck: deck,
             passage: passage,
+            paused: paused,
         };
     },
 };

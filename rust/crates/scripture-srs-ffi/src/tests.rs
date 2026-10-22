@@ -10,6 +10,7 @@ fn verse(start: &str) -> VerseRecord {
         log: Vec::new(),
         deck: None,
         passage: None,
+        paused: None,
     }
 }
 
@@ -156,6 +157,23 @@ fn a_verses_deck_and_passage_come_through() {
         (written[0]["deck"].as_str(), written[0]["passage"].as_str()),
         (Some("d1"), Some("p1"))
     );
+}
+
+#[test]
+fn a_paused_verse_is_held_and_not_due() {
+    let srs = ScriptureSrs::new();
+    let json = r#"[{"id": "a", "tag": "", "ref": "John 3:16", "start": "2026-01-01", "paused": "2026-01-10"}]"#;
+    let verses = srs.read_verses(json.into()).unwrap();
+    assert_eq!(verses[0].paused.as_deref(), Some("2026-01-10"));
+    let s = SrsScheduler::create()
+        .status(verses[0].clone(), "2026-03-01".into())
+        .unwrap();
+    assert_eq!(
+        (s.phase, s.position, s.due, s.next),
+        (Phase::Daily, 10, false, None)
+    );
+    let written: Value = serde_json::from_str(&srs.write_verses(verses).unwrap()).unwrap();
+    assert_eq!(written[0]["paused"].as_str(), Some("2026-01-10"));
 }
 
 #[test]

@@ -23,23 +23,19 @@ interface Review {
    * going back and grading again replaces that grade, and its buttons show what they'd do then
    */
   wrote: (number | null)[];
+  /** Verse by verse: how many of the card's verses show (all of them unless verse by verse is on) */
+  shown: number;
+  /** How many verses the card in front has, once its text loads */
+  length: number | null;
 }
 
-export const useReview = create<Review>()(() => ({ queue: [], index: 0, revealed: false, reviewed: 0, day: "", wrote: [] }));
+export const useReview = create<Review>()(() => ({ queue: [], index: 0, revealed: false, reviewed: 0, day: "", wrote: [], shown: Infinity, length: null }));
 
 useApp.subscribe((state, previous) => {
-  if (state.verses.length === previous.verses.length) return;
-  // Verses added and due today join the review: after the card in front, or as a new review
-  // once it was done (still counting what was reviewed)
-  if (state.verses.length > previous.verses.length) {
-    const r = useReview.getState();
-    if (!r.day) return;
-    if (r.index < r.queue.length) return startReview(r.day, true);
-    const { reviewed } = r;
-    startReview(r.day);
-    useReview.setState({ reviewed });
-    return;
-  }
+  if (state.verses === previous.verses) return;
+  if (state.verses.length === previous.verses.length) return pausesChanged(state.verses, previous.verses);
+  // Verses added and due today join the review
+  if (state.verses.length > previous.verses.length) return joinDue();
   // A verse deleted mid-review leaves the queue (the cards before it step back one)
   const ids = new Set(state.verses.map((v) => v.id));
   useReview.setState((r) => {
@@ -51,6 +47,35 @@ useApp.subscribe((state, previous) => {
     };
   });
 });
+
+/**
+ * Verses paused leave the cards ahead (those graded already stay, to go back to); verses resumed
+ * and due today join the review, as verses added do
+ */
+function pausesChanged(verses: readonly Verse[], before: readonly Verse[]) {
+  const r = useReview.getState();
+  if (!r.day) return;
+  const was = new Map(before.map((v) => [v.id, !!v.paused]));
+  const paused = new Set(verses.filter((v) => v.paused && !was.get(v.id)).map((v) => v.id));
+  const resumed = verses.some((v) => !v.paused && was.get(v.id));
+  if (paused.size > 0) {
+    useReview.setState((r) => {
+      const keep = r.queue.map((id, i) => i < r.index || !paused.has(id) || r.wrote[i] != null);
+      return { queue: r.queue.filter((_, i) => keep[i]), wrote: r.wrote.filter((_, i) => keep[i]), revealed: keep[r.index] ? r.revealed : false };
+    });
+  }
+  if (resumed) joinDue();
+}
+
+/** Verses newly due today join the review: after the card in front, or as a new review once it was done (still counting what was reviewed) */
+function joinDue() {
+  const r = useReview.getState();
+  if (!r.day) return;
+  if (r.index < r.queue.length) return startReview(r.day, true);
+  const { reviewed } = r;
+  startReview(r.day);
+  useReview.setState({ reviewed });
+}
 
 /**
  * Starts the review over with what's due on `day`. With `keepCurrent` (verses added mid-way),
@@ -80,11 +105,32 @@ export function currentVerse(verses: readonly Verse[], r: Review): Verse | null 
   return id === undefined ? null : (verses.find((v) => v.id === id) ?? null);
 }
 
-export const reveal = () => useReview.setState({ revealed: true });
+/** Shows the verse; verse by verse, its first verse */
+export const reveal = () => useReview.setState({ revealed: true, shown: useApp.getState().settings.verseByVerse ? 1 : Infinity });
+
+/** Whether the card in front has verses still to show, verse by verse */
+export const hasMore = (r: Review): boolean => r.revealed && r.length !== null && r.shown < r.length;
+
+/** Shows the card's next verse */
+export const showNext = () => useReview.setState((r) => ({ shown: r.shown + 1 }));
+
+/** Shows the rest of the card's verses */
+export const showAll = () => useReview.setState({ shown: Infinity });
+
+/**
+ * Space, a swipe, or a tap on the card: shows the verse, or its next verse (verse by verse), or
+ * goes on
+ */
+export function step(day: Day) {
+  const r = useReview.getState();
+  if (!r.revealed) reveal();
+  else if (hasMore(r)) showNext();
+  else forward(day);
+}
 
 export function back() {
   const { index } = useReview.getState();
-  if (index > 0) useReview.setState({ index: index - 1, revealed: true });
+  if (index > 0) useReview.setState({ index: index - 1, revealed: true, shown: Infinity });
 }
 
 /** Counts a verse reviewed on `day` (once, however often it's seen) */
