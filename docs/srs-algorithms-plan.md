@@ -131,7 +131,8 @@ dependency only); fold/placement/switching; Anki steps and fuzz bounds; session 
 - [x] 1. Plan
 - [x] 2–8. Engine, all algorithms (FSRS checked against ts-fsrs 3/4/5), store, review screen
 - [x] 9. Verses view, Edit dialog (summary, reschedule, start over, history), Move/Reschedule
-- [ ] 10. Settings Schedule tab (written; to verify in a browser)
-- [ ] 11. JSON backup and restore
-- [ ] 12. README, typecheck, test, build, browser check
+- [x] 10. Settings Schedule tab
+- [x] 11. JSON backup and restore
+- [x] 12. README, typecheck, test, build, browser check (headless Chromium: FSRS and Anki reviews,
+      learning-step requeue, going back and regrading, settings, verses, edit dialog; fixed unchanged)
 - [ ] 13. Rust library, BoltFFI bindings, Ratatui TUI

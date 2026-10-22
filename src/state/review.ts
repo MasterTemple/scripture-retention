@@ -17,9 +17,11 @@ interface Review {
   reviewed: number;
   /** The day the queue is for, so a page left open overnight starts again */
   day: Day;
+  /** The places in the queue already graded, so going back and grading again replaces the grade */
+  graded: number[];
 }
 
-export const useReview = create<Review>()(() => ({ queue: [], index: 0, revealed: false, reviewed: 0, day: "" }));
+export const useReview = create<Review>()(() => ({ queue: [], index: 0, revealed: false, reviewed: 0, day: "", graded: [] }));
 
 useApp.subscribe((state, previous) => {
   if (state.verses.length === previous.verses.length) return;
@@ -58,7 +60,7 @@ export function startReview(day: Day = reviewDay(), keepCurrent = false) {
     useReview.setState({ queue, index: queue.indexOf(current) });
     return;
   }
-  useReview.setState({ queue: due, index: 0, revealed: false, reviewed: 0, day });
+  useReview.setState({ queue: due, index: 0, revealed: false, reviewed: 0, day, graded: [] });
 }
 
 /** The verse in front, skipping any deleted since the review began */
@@ -85,7 +87,7 @@ export function next(day: Day, grade: Grade = 3) {
   const verse = currentVerse(useApp.getState().verses, r);
   if (verse) {
     count(verse, day);
-    useApp.getState().reviewVerse(verse.id, grade, day);
+    useApp.getState().reviewVerse(verse.id, grade, day, r.graded.includes(r.index));
   }
   advance(verse, day);
 }
@@ -116,8 +118,13 @@ function advance(verse: Verse | null, day: Day) {
   const { verses, settings } = useApp.getState();
   const updated = verse && verses.find((v) => v.id === verse.id);
   useReview.setState((r) => {
-    const again = updated && verseStatus(updated, day, settings).due && !r.queue.slice(r.index + 1).includes(updated.id);
-    return { index: r.index + 1, revealed: false, queue: again ? [...r.queue, updated.id] : r.queue };
+    const graded = r.graded.includes(r.index) ? r.graded : [...r.graded, r.index];
+    if (!updated) return { index: r.index + 1, revealed: false, graded };
+    const ahead = r.queue.slice(r.index + 1);
+    const due = verseStatus(updated, day, settings).due;
+    // Graded again after going back, it may no longer need its second look (or may now)
+    const queue = due ? (ahead.includes(updated.id) ? r.queue : [...r.queue, updated.id]) : [...r.queue.slice(0, r.index + 1), ...ahead.filter((id) => id !== updated.id)];
+    return { index: r.index + 1, revealed: false, queue, graded };
   });
 }
 
