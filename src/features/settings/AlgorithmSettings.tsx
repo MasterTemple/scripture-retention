@@ -179,6 +179,7 @@ function FsrsSection() {
  * now), and puts them in, saying how much it learned from
  */
 function OptimizeRow({ onFit }: { onFit: (params: number[]) => void }) {
+  const target = useContext(ScheduleTarget);
   const verses = useTargetVerses();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -190,6 +191,11 @@ function OptimizeRow({ onFit }: { onFit: (params: number[]) => void }) {
       const from = `${fit.reviews} ${fit.reviews === 1 ? "review" : "reviews"} of ${fit.verses} ${fit.verses === 1 ? "verse" : "verses"}`;
       if (fit.reviews < 8) {
         setResult(`Not enough to learn from yet: ${from}. FSRS learns from verses graded since they were new, a review on a later day than the one before; it keeps its defaults until there are a few hundred.`);
+        return;
+      }
+      // A deck whose own schedule was turned off meanwhile keeps nothing (the default isn't its to change)
+      if (target !== null && !useApp.getState().decks.find((d) => d.id === target)?.schedule) {
+        setResult("The deck no longer has its own schedule, so the fitted parameters weren't kept.");
         return;
       }
       onFit(fit.params);

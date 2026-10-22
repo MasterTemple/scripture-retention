@@ -6,7 +6,8 @@ import { DialogClose, DialogContent } from "@/components/ui/overlays";
 import { Label, Switch, Textarea } from "@/components/ui/primitives";
 import type { Day } from "@/core/dates";
 import { chapterLength, readPassages } from "@/bible/topos";
-import { DEFAULT_DECK } from "@/core/decks";
+import { DEFAULT_DECK, deckScheduler } from "@/core/decks";
+import { DEFAULT_SRS } from "@/core/srs";
 import { countByBucket, deckNamed, entryStart, parseList } from "@/core/lists";
 import { cardRefs } from "@/core/passages";
 import { PHASE_NAMES, PHASES } from "@/core/schedule";
@@ -25,7 +26,10 @@ export function ImportDialog({ day }: { day: Day }) {
   const verses = useApp((s) => s.verses);
   const queue = useApp((s) => s.queue);
   const passages = useApp((s) => s.passages);
-  const durations = useApp((s) => s.settings.durations);
+  const defaultDurations = useApp((s) => s.settings.durations);
+  const decks = useApp((s) => s.decks);
+  // An entry is placed by its deck's phase lengths (a deck the list adds follows the default)
+  const durations = (e: { deck?: string }) => deckScheduler({ algorithm: "fixed", srs: DEFAULT_SRS, durations: defaultDurations }, decks, deckNamed(e.deck, decks) ?? DEFAULT_DECK).durations;
   const [text, setText] = useState("");
   const [skipExisting, setSkipExisting] = useState(true);
   const file = useRef<HTMLInputElement>(null);
@@ -56,7 +60,7 @@ export function ImportDialog({ day }: { day: Day }) {
       const id = found ?? app.addDeck(name!.trim());
       return id === DEFAULT_DECK ? {} : { deck: id };
     };
-    app.addVerses(kept.filter((e) => !e.queued && !e.passage).map((e) => ({ tag: e.tag, ref: e.ref, start: entryStart(e, day, durations), ...deckFor(e.deck) })));
+    app.addVerses(kept.filter((e) => !e.queued && !e.passage).map((e) => ({ tag: e.tag, ref: e.ref, start: entryStart(e, day, durations(e)), ...deckFor(e.deck) })));
     app.queueVerses(kept.filter((e) => e.queued).map((e) => ({ tag: e.tag, ref: e.ref, ...deckFor(e.deck) })));
     let unread = 0;
     for (const e of kept.filter((e) => e.passage)) {
@@ -66,7 +70,7 @@ export function ImportDialog({ day }: { day: Day }) {
         unread++;
         continue;
       }
-      const start = entryStart(e, day, durations);
+      const start = entryStart(e, day, durations(e));
       app.addPassage({ ref: read.map((p) => p.reference).join("; "), tag: e.tag, unit: e.passage!.unit, ...(e.passage!.size ? { size: e.passage!.size } : {}), ...deckFor(e.deck) }, cards.map((ref) => ({ ref, start })));
     }
     const added = kept.length - unread;

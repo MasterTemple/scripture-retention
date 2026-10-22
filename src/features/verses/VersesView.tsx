@@ -135,7 +135,7 @@ export function VersesView({ day }: { day: Day }) {
               isAdaptive(schedulerFor(a.verse).algorithm) && phase !== "upcoming" ? when(a.status).localeCompare(when(b.status)) : b.verse.start.localeCompare(a.verse.start),
             );
           // The queue comes before the verses dated ahead, nearest first
-          const queueSection = phase === "upcoming" && <QueueSection key="queue" shown={queueShown} day={day} filtered={words.length > 0} />;
+          const queueSection = phase === "upcoming" && <QueueSection key="queue" shown={queueShown} day={day} filtered={words.length > 0} deck={deck} />;
           if (phase === "upcoming") group.reverse();
           if (group.length === 0) return queueSection || null;
           return [
@@ -273,7 +273,7 @@ function PassagesSection({ passages, day, schedulerFor }: { passages: PassageGro
 }
 
 /** Verses waiting to be started, in order, each with the day it starts */
-function QueueSection({ shown, day, filtered }: { shown: Queued[]; day: Day; filtered: boolean }) {
+function QueueSection({ shown, day, filtered, deck }: { shown: Queued[]; day: Day; filtered: boolean; deck: string | null }) {
   const queue = useApp((s) => s.queue);
   const verses = useApp((s) => s.verses);
   const autoStart = useApp((s) => s.settings.autoStart);
@@ -287,7 +287,7 @@ function QueueSection({ shown, day, filtered }: { shown: Queued[]; day: Day; fil
         <span className="rounded-full bg-muted px-1.5 py-px text-[11px] tabular-nums">{queue.length}</span>
         <button
           className="-my-1 ml-auto rounded-md px-2 py-1 text-xs font-medium tracking-normal text-primary normal-case hover:bg-accent"
-          onClick={() => openPanel({ kind: "edit", verseId: null, queue: true, deck: useUi.getState().versesDeck ?? undefined })}
+          onClick={() => openPanel({ kind: "edit", verseId: null, queue: true, deck: deck ?? undefined })}
         >
           + Queue a verse
         </button>

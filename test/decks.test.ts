@@ -2,8 +2,8 @@ import { beforeEach, test } from "vitest";
 import assert from "node:assert/strict";
 import { makeBackup, readBackup } from "../src/core/backup.ts";
 import { DEFAULT_DECK, deckOf, readDecks, schedulers } from "../src/core/decks.ts";
-import { formatList, parseList } from "../src/core/lists.ts";
-import { DEFAULT_DURATIONS } from "../src/core/schedule.ts";
+import { countByBucket, entryStart, formatList, parseList } from "../src/core/lists.ts";
+import { DEFAULT_DURATIONS, status } from "../src/core/schedule.ts";
 import { DEFAULT_SRS, verseStatus } from "../src/core/srs/index.ts";
 import { startReview, useReview } from "../src/state/review.ts";
 import { useApp } from "../src/state/store.ts";
@@ -92,4 +92,21 @@ test("a backup keeps decks and passages", () => {
   assert.notEqual(typeof read, "string");
   assert.deepEqual((read as typeof backup).passages, backup.passages);
   assert.match(readBackup(JSON.stringify({ ...backup, passages: [{ id: "x", ref: "1 Peter", tag: "", unit: "pages" }] })) as string, /passages/);
+});
+
+test("a passage of several parts reads back from a list", () => {
+  const { entries, errors } = parseList("Romans 8-12; Romans 14 as chapters\nRomans 8; James 1 as one card");
+  assert.deepEqual(errors, []);
+  assert.deepEqual(entries.map((e) => e.ref), ["Romans 8-12; Romans 14", "Romans 8; James 1"]);
+});
+
+test("imported verses are placed by their deck's phase lengths", () => {
+  const short = { dailyWeeks: 2, weeklyMonths: 7, monthlyYears: 7 };
+  const { entries } = parseList("Deck: Short\nWeekly:\nPsalm 1:1 @week 3\n\nDeck: Verses\nWeekly:\nPsalm 2:1 @week 3");
+  const counts = countByBucket(entries, day, (e) => (e.deck === "Short" ? short : DEFAULT_DURATIONS));
+  assert.equal(counts.weekly, 2);
+  const [a, b] = entries.map((e) => entryStart(e, day, e.deck === "Short" ? short : DEFAULT_DURATIONS));
+  assert.equal(status({ id: "", tag: "", ref: "", start: a! }, day, short).position, 3);
+  assert.equal(status({ id: "", tag: "", ref: "", start: b! }, day, DEFAULT_DURATIONS).position, 3);
+  assert.notEqual(a, b);
 });

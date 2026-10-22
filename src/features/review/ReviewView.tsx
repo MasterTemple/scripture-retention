@@ -9,7 +9,7 @@ import { PHASE_STYLE } from "@/lib/phase";
 import { swipeHandlers } from "@/lib/swipe";
 import { cn } from "@/lib/utils";
 import { back, currentVerse, forward, gradedAt, next, resetDay, reveal, startReview, useReview } from "@/state/review";
-import { deckOf } from "@/core/decks";
+import { deckOf, deckScheduler } from "@/core/decks";
 import { useApp, useScheduler, useSchedulers, useTranslation } from "@/state/store";
 import { prefetch, usePassageText } from "@/state/text";
 import { openPanel } from "@/state/ui";
@@ -298,9 +298,11 @@ function VerseText({ reference }: { reference: string }) {
 
 function Done({ day }: { day: Day }) {
   const all = useApp((s) => s.verses);
-  const chosen = useApp((s) => s.settings.reviewDeck);
+  const decks = useApp((s) => s.decks);
+  // The deck chosen, if it's still there
+  const chosen = useApp((s) => (s.decks.some((d) => d.id === s.settings.reviewDeck) ? s.settings.reviewDeck : null));
   const verses = chosen === null ? all : all.filter((v) => deckOf(v) === chosen);
-  const sch = useScheduler();
+  const sch = deckScheduler(useScheduler(), decks, chosen ?? undefined);
   const schedulerFor = useSchedulers();
   const names = isAdaptive(sch.algorithm) ? ADAPTIVE_PHASE_NAMES : PHASE_NAMES;
   const reviewed = useReview((s) => s.reviewed);

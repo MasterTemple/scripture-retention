@@ -59,8 +59,9 @@ const POSITION_WORDS: Record<string, Bucket> = { d: "daily", day: "daily", w: "w
 
 /** Something that looks like a reference: a book (maybe numbered) and a chapter, ending in a number */
 const REFERENCE = /^(?:[1-3]|I{1,3})?\s*[A-Za-z][A-Za-z .']*\s+\d[\d:.,;\s\-–—a-c]*$/;
-/** A passage may name a book alone ("1 Peter as chapters") */
-const PASSAGE = /^(?:[1-3]|I{1,3})?\s*[A-Za-z][A-Za-z .']*(?:\s+\d[\d:.,;\s\-–—a-c]*)?$/;
+/** A passage may name a book alone ("1 Peter as chapters"), and be several, `;` apart ("Romans 8-12; Romans 14") */
+const PASSAGE_PART = /^(?:[1-3]|I{1,3})?\s*[A-Za-z][A-Za-z .']*(?:\s+\d[\d:.,\s\-–—a-c]*)?$/;
+const isPassage = (ref: string) => ref.split(/\s*;\s*/).every((part) => PASSAGE_PART.test(part) || /^\d[\d:.,\s\-–—a-c]*$/.test(part));
 
 /** `verses`, `chapters`, `groups of 8`, `one card`: how a passage's cards are split */
 function readUnit(text: string): { unit: CardUnit; size?: number } | null {
@@ -116,7 +117,7 @@ export function parseList(text: string): ParsedList {
       continue;
     }
     if (split) ref = split[1]!.trim();
-    if (!(passage ? PASSAGE : REFERENCE).test(ref)) {
+    if (!(passage ? isPassage(ref) : REFERENCE.test(ref))) {
       errors.push({ line, text: raw, message: ref ? `"${ref}" doesn't look like a reference` : "No reference" });
       continue;
     }
@@ -208,7 +209,7 @@ export function deckNamed(name: string | undefined, decks: readonly Deck[]): str
 }
 
 /** How many entries land in each phase when imported on `day`, and in the queue */
-export function countByBucket(entries: readonly ListEntry[], day: Day, durations: Durations): Record<Phase | "queued", number> {
+export function countByBucket(entries: readonly ListEntry[], day: Day, durations: Durations | ((entry: ListEntry) => Durations)): Record<Phase | "queued", number> {
   const counts = Object.fromEntries([...PHASES, "queued"].map((p) => [p, 0])) as Record<Phase | "queued", number>;
   for (const entry of entries) {
     if (entry.passage) continue;
@@ -216,8 +217,9 @@ export function countByBucket(entries: readonly ListEntry[], day: Day, durations
       counts.queued++;
       continue;
     }
-    const start = entryStart(entry, day, durations);
-    counts[status({ id: "", tag: "", ref: "", start }, day, durations).phase]++;
+    const d = typeof durations === "function" ? durations(entry) : durations;
+    const start = entryStart(entry, day, d);
+    counts[status({ id: "", tag: "", ref: "", start }, day, d).phase]++;
   }
   return counts;
 }

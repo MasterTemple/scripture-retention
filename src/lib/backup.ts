@@ -4,6 +4,7 @@ import { readDecks } from "@/core/decks";
 import { mergeSrs, toAlgorithm } from "@/core/srs";
 import { reviewDay, useApp, type Settings } from "@/state/store";
 import { startReview } from "@/state/review";
+import { useUi } from "@/state/ui";
 
 /** Saves everything, review history and all, as a file */
 export function downloadBackup() {
@@ -42,6 +43,10 @@ export async function restoreBackup(file: File): Promise<boolean> {
       algorithm: toAlgorithm(saved.algorithm),
     },
   });
+  // A deck chosen to review or show that the backup doesn't have
+  const restored = useApp.getState();
+  if (!restored.decks.some((d) => d.id === restored.settings.reviewDeck)) useApp.setState({ settings: { ...restored.settings, reviewDeck: null } });
+  useUi.setState({ versesDeck: null });
   startReview();
   const { verses, queue, queueChecked, settings, decks, passages } = previous;
   toast.success(`Restored ${backup.verses.length} ${backup.verses.length === 1 ? "verse" : "verses"}`, {
