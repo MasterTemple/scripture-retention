@@ -2,7 +2,18 @@
 name = "scripture-srs-ffi"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bindings for TypeScript/WASM, Python, Swift, and Kotlin (via BoltFFI)"
 publish = false
 
 [lib]
-path = "src/lib.rs"
+# Matches the published package name (scripture-srs), which BoltFFI uses for artifacts
+name = "scripture_srs"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+boltffi = "0.31.0"
+serde_json = { workspace = true }
+# Named srs_core here: this crate's own library is scripture_srs (the package name BoltFFI uses)
+srs_core = { package = "scripture-srs", path = "../scripture-srs", features = ["serde"] }

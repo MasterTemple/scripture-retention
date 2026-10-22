@@ -1,0 +1,12 @@
+{
+  "name": "scripture-srs-node-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "conformance": "node conformance.ts",
+    "readme": "node readme.ts"
+  },
+  "dependencies": {
+    "scripture-srs": "file:../../dist/wasm/pkg"
+  }
+}
