@@ -50,7 +50,26 @@ Under any of them:
 - Phases are named by how far apart the reviews are: *Days*, *Weeks*, *Months*.
 - Tap a verse in **Verses** to see what the algorithm knows of it (stability, difficulty, ease, box, half-life, retrievability), its history, and to reschedule it or start it over as new.
 
-Not included: SuperMemo's later algorithms (SM-17/18, unpublished in full), and Duolingo's half-life regression, whose weights have to be trained on a large body of reviews.
+**Optimize** (Settings → Schedule → FSRS) fits FSRS's parameters to how you've graded your verses, with [fsrs-rs](https://github.com/open-spaced-repetition/fsrs-rs), the optimizer Anki runs, on your device. It learns from verses graded since they were new, so verses from before grading count once they're started over; it needs a few hundred reviews to beat the defaults.
+
+Not included: SuperMemo's later algorithms (SM-17/18, unpublished in full), and Duolingo's half-life regression, whose weights have to be trained on a large body of reviews (noted in `docs/srs-algorithms-plan.md` for later).
+
+## Books and chapters
+
+Memorized a whole book, or chapters? **Verses → ⋯ → Add a book or chapters** adds it as one passage, typed (`1 Peter`, `Romans 8-12`, `Psalm 119:1-16`) or picked (a book, then the chapters). Choose how it's split into cards:
+
+| Cards | 1 Peter becomes |
+| --- | --- |
+| Verses | 105 cards, `1 Peter 1:1` … |
+| Chapters | 5 cards, `1 Peter 1` … `1 Peter 5` |
+| Groups of N verses | `1 Peter 1:1-5`, `1 Peter 1:6-10` … (within each chapter) |
+| One card | `1 Peter` |
+
+Each card is reviewed on its own schedule, and the passage is one row in **Verses** (how many cards, how many due), added and deleted as a whole.
+
+## Decks
+
+Keep verses in decks, such as topical verses in one and a book you're memorizing in another. **Verses** shows one deck or all of them, and **Review** reviews one deck or all. A deck follows the default schedule, or has its own algorithm and options (Settings → Schedule → *Schedule for*), so topical verses can stay on the method above while a book follows FSRS. Deleting a deck deletes what's in it (with undo).
 
 ## Install it
 
@@ -120,6 +139,8 @@ Queue:
 - `@day 12`, `@week 3`, or `@month 5` places a verse further in; `@2026-01-04` gives the day its daily reviews began.
 - Verses under `Queue:` are queued.
 - The topic and backticks are optional; `#?` is a verse without a topic yet.
+- `1 Peter as chapters`, `Romans 8 as verses`, `Psalm 119 as groups of 8`, or `James as one card` adds a passage as one.
+- A `Deck: Name` line puts what's below it in that deck, adding the deck if it isn't there yet.
 
 **Copy all as a list** (or **Share**, or **Save as a file**) exports every verse in the same form, with start dates, so it imports back the same.
 
@@ -161,7 +182,7 @@ The site has no server, so it can't push a notification at an exact time the way
 | Tab | What's in it |
 | --- | --- |
 | Review | Order (by phase or shuffled), keep the card steady, show the prompt, text size, the hour a new day begins, review today again |
-| Schedule | The algorithm and its options, how long each phase lasts, and the day queued verses start |
+| Schedule | The algorithm and its options (the default schedule, or a deck's own), optimizing FSRS, how long each phase lasts, and the day queued verses start |
 | Reminders | Review each day, add a new verse, add to my calendar |
 | Bible | The translation: built in, from fetch.bible, or uploaded |
 | Appearance | The title bar, the theme, and the accent color (one of ten, or any color, kept readable in both themes) |
@@ -187,6 +208,8 @@ npm run build      # static site in dist/
 - React 19, TypeScript, Vite, Tailwind CSS v4, and Radix primitives (shadcn-style components in `src/components/ui`)
 - `src/core/` (dates, the schedule, lists, the queue, reminders) has no browser imports, so the service worker uses it too
 - `src/core/srs/` holds the algorithms, each a set of pure functions over a verse's review log; FSRS is tested against [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) 3, 4, and 5 (FSRS-4.5, 5, and 6)
+- `src/core/decks.ts` and `src/core/passages.ts`: each deck's schedule, and splitting a passage into cards (every card reads back, through topos, as exactly its verses)
+- FSRS's optimizer is the Rust engine's WebAssembly (`rust/`), vendored in `vendor/scripture-srs` and loaded in a worker only when optimizing; `scripts/vendor-srs.sh` rebuilds it
 - [topos-bible](https://www.npmjs.com/package/topos-bible) reads references and completes them as they're typed (`src/bible/topos.ts`)
 - [logoxide](https://www.npmjs.com/package/logoxide) reads USFM, USX, OSIS, and zips into per-verse text in a Web Worker, so its WebAssembly only loads when a book is first needed (`src/bible/parse.ts`, `src/bible/worker.ts`)
 - zustand for state (verses and settings persist in localStorage)

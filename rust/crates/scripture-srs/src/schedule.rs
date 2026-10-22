@@ -28,6 +28,18 @@ pub struct Verse {
         serde(default, skip_serializing_if = "Vec::is_empty")
     )]
     pub log: Vec<LogEntry>,
+    /// The deck it's in (the default deck when none)
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub deck: Option<String>,
+    /// The passage it's a card of, added and deleted with it
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub passage: Option<String>,
 }
 
 impl Verse {
@@ -45,6 +57,8 @@ impl Verse {
             start,
             last: None,
             log: Vec::new(),
+            deck: None,
+            passage: None,
         }
     }
 }

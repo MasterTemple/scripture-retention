@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use scripture_srs::{ALGORITHM_IDS, Day, Grade, LogEntry, Order, Scheduler, Verse, with_entry};
+use scripture_srs::{ALGORITHM_IDS, Day, Grade, LogEntry, Scheduler, Verse, with_entry};
 
 use crate::bible::{Bible, TextState};
 use crate::store::{Store, TRANSLATIONS};
@@ -84,18 +84,30 @@ impl App {
         app
     }
 
+    /// The default schedule (decks without their own follow it)
     pub fn scheduler(&self) -> Scheduler {
         self.store.scheduler()
+    }
+
+    /// What schedules a verse: its deck's own schedule, or the default
+    pub fn scheduler_for(&self, verse: &Verse) -> Scheduler {
+        self.store.scheduler_for(verse)
     }
 
     pub fn fetch_id(&self) -> &'static str {
         TRANSLATIONS[self.store.translation()].2
     }
 
-    /// The verses due today, in order
+    /// The verses due today, each by its deck's schedule: shortest intervals first, oldest first in each
     pub fn due(&self) -> Vec<&Verse> {
-        self.scheduler()
-            .due_verses(&self.store.verses, self.day, Order::Phase)
+        let mut due: Vec<(&Verse, scripture_srs::Status)> = (self.store.verses.iter())
+            .map(|v| (v, self.scheduler_for(v).status(v, self.day)))
+            .filter(|(_, s)| s.due)
+            .collect();
+        let phase =
+            |s: &scripture_srs::Status| scripture_srs::PHASES.iter().position(|p| *p == s.phase);
+        due.sort_by(|(a, sa), (b, sb)| phase(sa).cmp(&phase(sb)).then(a.start.cmp(&b.start)));
+        due.into_iter().map(|(v, _)| v).collect()
     }
 
     /// Starts the review over with what's due, and starts downloading their books
@@ -152,7 +164,9 @@ impl App {
         let Some(id) = self.queue.get(self.index).cloned() else {
             return;
         };
-        let scheduler = self.scheduler();
+        let Some(scheduler) = self.verse(&id).map(|v| self.scheduler_for(v)) else {
+            return;
+        };
         let at = self.graded_at();
         let day = self.day;
         let mut wrote = None;
@@ -186,8 +200,8 @@ impl App {
         let Some(id) = self.queue.get(self.index).cloned() else {
             return;
         };
-        let scheduler = self.scheduler();
         if let Some(i) = self.store.verses.iter().position(|v| v.id == id) {
+            let scheduler = self.scheduler_for(&self.store.verses[i]);
             if self.store.verses[i].last != Some(self.day) {
                 self.reviewed += 1;
             }
@@ -223,7 +237,7 @@ impl App {
         }
         let due = self
             .verse(id)
-            .is_some_and(|v| self.scheduler().status(v, self.day).due);
+            .is_some_and(|v| self.scheduler_for(v).status(v, self.day).due);
         let ahead_has = self.queue[self.index + 1..].iter().any(|q| q == id);
         if due && !ahead_has {
             self.queue.push(id.to_string());
@@ -253,13 +267,12 @@ impl App {
 
     /// The verses as the Verses view lists them: by phase, then soonest due or newest
     pub fn listed(&self) -> Vec<usize> {
-        let scheduler = self.scheduler();
         let mut rows: Vec<(usize, scripture_srs::Status)> = self
             .store
             .verses
             .iter()
             .enumerate()
-            .map(|(i, v)| (i, scheduler.status(v, self.day)))
+            .map(|(i, v)| (i, self.scheduler_for(v).status(v, self.day)))
             .collect();
         rows.sort_by(|(a, sa), (b, sb)| {
             let phase = |s: &scripture_srs::Status| {
@@ -383,7 +396,11 @@ impl App {
             }
             return;
         }
-        let grades = self.scheduler().grades();
+        let scheduler = self
+            .current()
+            .map(|v| self.scheduler_for(v))
+            .unwrap_or_default();
+        let grades = scheduler.grades();
         match code {
             KeyCode::Char(' ') | KeyCode::Enter | KeyCode::Right => {
                 if self.revealed {
@@ -393,7 +410,7 @@ impl App {
                 }
             }
             KeyCode::Char(c @ '1'..='4')
-                if self.revealed && self.scheduler().algorithm().is_adaptive() =>
+                if self.revealed && scheduler.algorithm().is_adaptive() =>
             {
                 if let Some(grade) = grades.get(c as usize - '1' as usize) {
                     self.grade(*grade);
@@ -427,27 +444,47 @@ impl App {
                 };
                 if !self.confirm_delete {
                     self.confirm_delete = true;
-                    self.message = Some(format!(
-                        "Press x again to delete {}",
-                        self.store.verses[i].reference
-                    ));
+                    let verse = &self.store.verses[i];
+                    self.message = Some(match verse.passage.as_deref() {
+                        Some(passage) => {
+                            let cards = self
+                                .store
+                                .verses
+                                .iter()
+                                .filter(|v| v.passage.as_deref() == Some(passage))
+                                .count();
+                            let name = self.store.passage_name(passage).unwrap_or_default();
+                            format!("Press x again to delete {name}, all {cards} of its cards")
+                        }
+                        None => format!("Press x again to delete {}", verse.reference),
+                    });
                     return;
                 }
-                let removed = self.store.verses.remove(i);
+                // A passage's card goes with the whole passage, as one
+                let deleted = match self.store.verses[i].passage.clone() {
+                    Some(passage) => {
+                        let name = self.store.passage_name(&passage).unwrap_or_default();
+                        self.store.remove_passage(&passage);
+                        name
+                    }
+                    None => self.store.verses.remove(i).reference,
+                };
                 self.confirm_delete = false;
                 self.selected = self.selected.min(self.store.verses.len().saturating_sub(1));
-                self.message = Some(format!("Deleted {}", removed.reference));
+                self.message = Some(format!("Deleted {deleted}"));
                 self.save();
                 self.start_review();
             }
             // Start over as new
-            KeyCode::Char('f') if self.scheduler().algorithm().is_adaptive() => {
+            KeyCode::Char('f') => {
                 let Some(i) = self.selected_verse() else {
                     return;
                 };
-                self.store.verses[i] =
-                    self.scheduler()
-                        .placed(&self.store.verses[i], 0, self.day, false);
+                let scheduler = self.scheduler_for(&self.store.verses[i]);
+                if !scheduler.algorithm().is_adaptive() {
+                    return;
+                }
+                self.store.verses[i] = scheduler.placed(&self.store.verses[i], 0, self.day, false);
                 self.message = Some(format!(
                     "{} starts over as new",
                     self.store.verses[i].reference

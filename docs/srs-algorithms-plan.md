@@ -189,4 +189,5 @@ module like Ebisu's in both engines, conformance cases, and a "fit" button like 
 - [x] 16. UI: deck chips, passage dialog (picker, units), passages in Verses, review by deck,
       Settings per deck, Optimize button (checked in Chromium: 1 Peter by chapters into a new
       deck, reviewing it alone, a deck's own schedule, optimizing 420 reviews in the browser)
-- [ ] 17. Rust: deck/passage fields, TUI per-deck schedules; README; browser check
+- [x] 17. Rust: deck/passage fields (core, bindings: README examples and conformance rerun in
+      Node and Python), TUI per-deck schedules and whole-passage delete (run in tmux); READMEs

@@ -5,7 +5,7 @@ terminal app.
 
 | Crate | What it is |
 | --- | --- |
-| [`scripture-srs`](crates/scripture-srs) | The engine: the fixed schedule, FSRS 4.5/5/6, Anki's SM-2, SuperMemo SM-2, Leitner, Pimsleur, and Ebisu, over each verse's review log. No dependencies (serde behind a feature, reading the web app's JSON) |
+| [`scripture-srs`](crates/scripture-srs) | The engine: the fixed schedule, FSRS 4.5/5/6, Anki's SM-2, SuperMemo SM-2, Leitner, Pimsleur, and Ebisu, over each verse's review log. No dependencies by default; `serde` reads the web app's JSON, and `optimizer` fits FSRS's parameters with fsrs-rs (which the web app runs, as WebAssembly, from `vendor/scripture-srs`) |
 | [`scripture-srs-ffi`](crates/scripture-srs-ffi) | Bindings for TypeScript (WebAssembly) and Python, made with [BoltFFI](https://github.com/boltffi/boltffi) (Swift and Kotlin can be generated too) |
 | [`scripture-tui`](crates/scripture-tui) | Reviewing in the terminal, with [Ratatui](https://ratatui.rs) |
 
@@ -47,8 +47,11 @@ keeps them in `$XDG_DATA_HOME/scripture-retention/backup.json`.
 - **Verses**: every verse by phase, soonest due first, with the algorithm's view of the one
   selected (stability, difficulty, ease, box, half-life…) and its history; `a` adds one, `x`
   deletes, `f` starts one over as new.
-- **Settings**: the algorithm (with how many verses each has due today), the translation (BSB,
-  KJV, WEB, ASV, LSV, YLT), and FSRS's desired retention.
+- **Settings**: the default schedule's algorithm (with how many verses each has due today), the
+  translation (BSB, KJV, WEB, ASV, LSV, YLT), and FSRS's desired retention.
+- **Decks and passages** from the web app come along: each verse is scheduled by its deck's own
+  schedule (or the default), a passage's card names its passage, and deleting one deletes the
+  whole passage. Making decks and passages, and a deck's own options, are the web app's.
 
 ## Development
 

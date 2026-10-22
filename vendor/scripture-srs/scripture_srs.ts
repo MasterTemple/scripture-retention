@@ -46,11 +46,13 @@ export interface VerseRecord {
   readonly start: string;
   readonly last: string | null;
   readonly log: Array<LogItem>;
+  readonly deck: string | null;
+  readonly passage: string | null;
 }
 
 
 const VerseRecordCodec: WireCodec<VerseRecord> = {
-  size: (value) => (((((wireStringSize(value.id) + wireStringSize(value.tag)) + wireStringSize(value.reference)) + wireStringSize(value.start)) + wireOptionalSize(value.last, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireArraySize(value.log, (__boltffiValue0) => LogItemCodec.size(__boltffiValue0))),
+  size: (value) => (((((((wireStringSize(value.id) + wireStringSize(value.tag)) + wireStringSize(value.reference)) + wireStringSize(value.start)) + wireOptionalSize(value.last, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireArraySize(value.log, (__boltffiValue0) => LogItemCodec.size(__boltffiValue0))) + wireOptionalSize(value.deck, (__boltffiValue0) => wireStringSize(__boltffiValue0))) + wireOptionalSize(value.passage, (__boltffiValue0) => wireStringSize(__boltffiValue0))),
   encode: (writer, value) => {
     writer.writeString(value.id);
     writer.writeString(value.tag);
@@ -62,6 +64,12 @@ const VerseRecordCodec: WireCodec<VerseRecord> = {
     writer.writeArray(value.log, (__boltffiValue0) => {
   LogItemCodec.encode(writer, __boltffiValue0);
 });
+    writer.writeOptional(value.deck, (__boltffiValue0) => {
+  writer.writeString(__boltffiValue0);
+});
+    writer.writeOptional(value.passage, (__boltffiValue0) => {
+  writer.writeString(__boltffiValue0);
+});
   },
   decode: (reader) => {
     const id = reader.readString();
@@ -70,6 +78,8 @@ const VerseRecordCodec: WireCodec<VerseRecord> = {
     const start = reader.readString();
     const last = reader.readOptional(() => reader.readString());
     const log = reader.readArray(() => LogItemCodec.decode(reader));
+    const deck = reader.readOptional(() => reader.readString());
+    const passage = reader.readOptional(() => reader.readString());
     return {
       id: id,
       tag: tag,
@@ -77,6 +87,8 @@ const VerseRecordCodec: WireCodec<VerseRecord> = {
       start: start,
       last: last,
       log: log,
+      deck: deck,
+      passage: passage,
     };
   },
 };

@@ -8,6 +8,8 @@ fn verse(start: &str) -> VerseRecord {
         start: start.into(),
         last: None,
         log: Vec::new(),
+        deck: None,
+        passage: None,
     }
 }
 
@@ -134,6 +136,26 @@ fn fsrs_parameters_and_retention() {
     ));
     let json: Value = serde_json::from_str(&s.with_desired_retention(0.5).to_json()).unwrap();
     assert_eq!(json["srs"]["fsrs"]["desiredRetention"], 0.7);
+}
+
+#[test]
+fn a_verses_deck_and_passage_come_through() {
+    let srs = ScriptureSrs::new();
+    let json = r#"[{"id": "a", "tag": "", "ref": "1 Peter 1", "start": "2026-01-01", "deck": "d1", "passage": "p1"}]"#;
+    let verses = srs.read_verses(json.into()).unwrap();
+    assert_eq!(
+        (verses[0].deck.as_deref(), verses[0].passage.as_deref()),
+        (Some("d1"), Some("p1"))
+    );
+    let reviewed = SrsScheduler::create()
+        .review(verses[0].clone(), Grade::Good, "2026-01-01".into())
+        .unwrap();
+    assert_eq!(reviewed.passage.as_deref(), Some("p1"));
+    let written: Value = serde_json::from_str(&srs.write_verses(vec![reviewed]).unwrap()).unwrap();
+    assert_eq!(
+        (written[0]["deck"].as_str(), written[0]["passage"].as_str()),
+        (Some("d1"), Some("p1"))
+    );
 }
 
 #[test]

@@ -139,8 +139,61 @@ impl Store {
         self.setting("durations").unwrap_or_default()
     }
 
+    /// The default schedule (decks without their own follow it)
     pub fn scheduler(&self) -> Scheduler {
         Scheduler::new(self.algorithm(), self.durations(), self.options())
+    }
+
+    /// What schedules a verse: its deck's own schedule, or the default
+    pub fn scheduler_for(&self, verse: &Verse) -> Scheduler {
+        let own = verse.deck.as_ref().and_then(|deck| {
+            let decks = self.rest.get("decks")?.as_array()?;
+            let schedule = decks
+                .iter()
+                .find(|d| d.get("id").and_then(Value::as_str) == Some(deck))?
+                .get("schedule")?;
+            let algorithm: AlgorithmId =
+                serde_json::from_value(schedule.get("algorithm")?.clone()).ok()?;
+            let durations: Durations =
+                serde_json::from_value(schedule.get("durations")?.clone()).unwrap_or_default();
+            let options: SrsOptions =
+                serde_json::from_value(schedule.get("srs")?.clone()).unwrap_or_default();
+            Some(Scheduler::new(algorithm, durations, options))
+        });
+        own.unwrap_or_else(|| self.scheduler())
+    }
+
+    /// A deck's name, by id (the default deck's when none)
+    pub fn deck_name(&self, deck: Option<&str>) -> String {
+        let decks = self.rest.get("decks").and_then(Value::as_array);
+        let id = deck.unwrap_or("default");
+        decks
+            .and_then(|decks| {
+                decks
+                    .iter()
+                    .find(|d| d.get("id").and_then(Value::as_str) == Some(id))
+            })
+            .and_then(|d| d.get("name").and_then(Value::as_str))
+            .unwrap_or(if deck.is_none() { "Verses" } else { "?" })
+            .to_string()
+    }
+
+    /// A passage's reference, by id
+    pub fn passage_name(&self, passage: &str) -> Option<String> {
+        let passages = self.rest.get("passages")?.as_array()?;
+        let found = passages
+            .iter()
+            .find(|p| p.get("id").and_then(Value::as_str) == Some(passage))?;
+        found.get("ref").and_then(Value::as_str).map(str::to_string)
+    }
+
+    /// Deletes a passage with all its cards, as the web app does
+    pub fn remove_passage(&mut self, passage: &str) {
+        self.verses
+            .retain(|v| v.passage.as_deref() != Some(passage));
+        if let Some(Value::Array(passages)) = self.rest.get_mut("passages") {
+            passages.retain(|p| p.get("id").and_then(Value::as_str) != Some(passage));
+        }
     }
 
     /// The hour (0–11) a new day of reviews begins
@@ -209,6 +262,36 @@ mod tests {
             written["verses"][0]["log"][1],
             json!({"day": "2026-01-02", "set": 4})
         );
+    }
+
+    #[test]
+    fn each_deck_its_own_schedule_and_a_passage_deleted_whole() {
+        let mut store = Store::from_json(r#"{"app": "scripture-retention", "version": 1, "settings": {"algorithm": "fixed"},
+            "decks": [{"id": "default", "name": "Verses"}, {"id": "d", "name": "1 Peter", "schedule": {"algorithm": "fsrs", "srs": {}, "durations": {}}}],
+            "passages": [{"id": "p", "ref": "1 Peter", "tag": "", "unit": "chapter", "deck": "d"}],
+            "verses": [{"id": "a", "tag": "", "ref": "John 3:16", "start": "2026-01-01"},
+                       {"id": "b", "tag": "", "ref": "1 Peter 1", "start": "2026-01-01", "deck": "d", "passage": "p"},
+                       {"id": "c", "tag": "", "ref": "1 Peter 2", "start": "2026-01-01", "deck": "d", "passage": "p"}]}"#).unwrap();
+        assert_eq!(
+            store.scheduler_for(&store.verses[0]).algorithm(),
+            AlgorithmId::Fixed
+        );
+        assert_eq!(
+            store.scheduler_for(&store.verses[1]).algorithm(),
+            AlgorithmId::Fsrs
+        );
+        assert_eq!(
+            (store.deck_name(Some("d")), store.deck_name(None)),
+            ("1 Peter".to_string(), "Verses".to_string())
+        );
+        assert_eq!(store.passage_name("p").as_deref(), Some("1 Peter"));
+        // Saved and read back, every field stays
+        let again = Store::from_json(&store.to_json("now")).unwrap();
+        assert_eq!(again, store);
+        store.remove_passage("p");
+        assert_eq!(store.verses.len(), 1);
+        let written: Value = serde_json::from_str(&store.to_json("now")).unwrap();
+        assert_eq!(written["passages"], json!([]));
     }
 
     #[test]

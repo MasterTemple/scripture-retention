@@ -66,7 +66,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     draw_top(frame, top, app, &scheduler);
     match app.view {
         View::Review => draw_review(frame, body, app, &scheduler),
-        View::Verses => draw_verses(frame, body, app, &scheduler),
+        View::Verses => draw_verses(frame, body, app),
         View::Settings => draw_settings(frame, body, app),
     }
     draw_bottom(frame, bottom, app, &scheduler);
@@ -78,9 +78,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 fn draw_top(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) {
     let [left, right] =
         Layout::horizontal([Constraint::Min(30), Constraint::Length(40)]).areas(area);
-    let due = scheduler
-        .due_verses(&app.store.verses, app.day, Order::Phase)
-        .len();
+    let due = app.due().len();
     let titles = VIEWS.iter().map(|v| match v {
         View::Review => format!("Review · {due}"),
         View::Verses => format!("Verses · {}", app.store.verses.len()),
@@ -116,7 +114,11 @@ fn draw_bottom(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) 
         );
         return;
     }
-    let adaptive = scheduler.algorithm().is_adaptive();
+    // The card in front's deck may have its own schedule
+    let adaptive = match (app.view, app.current()) {
+        (View::Review, Some(verse)) => app.scheduler_for(verse).algorithm().is_adaptive(),
+        _ => scheduler.algorithm().is_adaptive(),
+    };
     let keys = match app.view {
         View::Review if app.current().is_none() => "Tab views · q quit",
         View::Review if !app.revealed => "Space show the verse · ← back · Tab views · q quit",
@@ -137,7 +139,13 @@ fn draw_review(frame: &mut Frame, area: Rect, app: &mut App, scheduler: &Schedul
     let Some(verse) = app.current().cloned() else {
         return draw_done(frame, area, app, scheduler);
     };
+    // Its deck's schedule
+    let scheduler = &app.scheduler_for(&verse);
     let adaptive = scheduler.algorithm().is_adaptive();
+    let passage = verse
+        .passage
+        .as_deref()
+        .and_then(|p| app.store.passage_name(p));
     let status = scheduler.status(&verse, app.day);
     let [progress, card, buttons] = Layout::vertical([
         Constraint::Length(1),
@@ -169,6 +177,14 @@ fn draw_review(frame: &mut Frame, area: Rect, app: &mut App, scheduler: &Schedul
         Line::from(Span::raw(verse.reference.clone()).bold()),
         Line::raw(""),
     ];
+    // A passage's card names its passage above it
+    if let Some(passage) = &passage {
+        // Without a topic of its own, a card goes by its passage
+        if verse.tag.is_empty() {
+            lines.remove(0);
+        }
+        lines.insert(0, Line::from(passage.to_uppercase()).dim());
+    }
     if app.revealed {
         match app.current_text() {
             Some(TextState::Ready(passages)) => {
@@ -209,8 +225,12 @@ fn draw_review(frame: &mut Frame, area: Rect, app: &mut App, scheduler: &Schedul
         }
     } else {
         lines.push(
-            Line::from("Say the topic, the reference, and the verse aloud, then press Space.")
-                .dim(),
+            Line::from(if passage.is_some() && verse.tag.is_empty() {
+                "Say the reference and recite it aloud, then press Space."
+            } else {
+                "Say the topic, the reference, and the verse aloud, then press Space."
+            })
+            .dim(),
         );
     }
     let block = Block::bordered()
@@ -269,7 +289,7 @@ fn draw_done(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) {
         .store
         .verses
         .iter()
-        .map(|v| scheduler.status(v, app.day))
+        .map(|v| app.scheduler_for(v).status(v, app.day))
         .collect();
     let mut lines = vec![];
     if app.store.verses.is_empty() {
@@ -320,9 +340,7 @@ fn draw_done(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) {
             lines.push(Line::raw(""));
             lines.push(Line::from(format!("Next review: {next}")).dim());
         }
-        let more = scheduler
-            .due_verses(&app.store.verses, app.day, Order::Phase)
-            .len();
+        let more = app.due().len();
         if more > 0 {
             lines.push(Line::raw(""));
             lines.push(Line::from(format!("Space to review {more} more")).fg(ACCENT));
@@ -334,8 +352,7 @@ fn draw_done(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) {
     frame.render_widget(Paragraph::new(lines).alignment(Alignment::Center), middle);
 }
 
-fn draw_verses(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) {
-    let adaptive = scheduler.algorithm().is_adaptive();
+fn draw_verses(frame: &mut Frame, area: Rect, app: &App) {
     let wide = area.width >= 100;
     let [list, detail] = if wide {
         Layout::horizontal([Constraint::Percentage(58), Constraint::Percentage(42)]).areas(area)
@@ -347,6 +364,8 @@ fn draw_verses(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) 
         .iter()
         .map(|&i| {
             let v = &app.store.verses[i];
+            let scheduler = app.scheduler_for(v);
+            let adaptive = scheduler.algorithm().is_adaptive();
             let s = scheduler.status(v, app.day);
             Row::new(vec![
                 Cell::from(Span::styled(
@@ -392,12 +411,13 @@ fn draw_verses(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler) 
         TableState::default().with_selected((!order.is_empty()).then_some(app.selected));
     frame.render_stateful_widget(table, list, &mut state);
     if wide && let Some(&i) = order.get(app.selected) {
-        draw_detail(frame, detail, app, scheduler, i);
+        draw_detail(frame, detail, app, i);
     }
 }
 
-fn draw_detail(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler, index: usize) {
+fn draw_detail(frame: &mut Frame, area: Rect, app: &App, index: usize) {
     let v = &app.store.verses[index];
+    let scheduler = app.scheduler_for(v);
     let s = scheduler.status(v, app.day);
     let mut lines = vec![
         Line::from(v.reference.clone()).bold(),
@@ -414,6 +434,20 @@ fn draw_detail(frame: &mut Frame, area: Rect, app: &App, scheduler: &Scheduler, 
         lines.push(Line::from(vec![
             Span::raw(format!("{label:<16}")).dim(),
             Span::raw(value),
+        ]));
+    }
+    lines.push(Line::from(vec![
+        Span::raw(format!("{:<16}", "Deck")).dim(),
+        Span::raw(format!(
+            "{} ({})",
+            app.store.deck_name(v.deck.as_deref()),
+            scheduler.algorithm().name()
+        )),
+    ]));
+    if let Some(passage) = v.passage.as_deref().and_then(|p| app.store.passage_name(p)) {
+        lines.push(Line::from(vec![
+            Span::raw(format!("{:<16}", "Passage")).dim(),
+            Span::raw(passage),
         ]));
     }
     lines.push(Line::from(vec![

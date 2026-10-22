@@ -10,6 +10,7 @@ written in Rust.
 - **Anki's SM-2**: learning and relearning steps, ease, hard/good/easy intervals with delay and
   early reviews, fuzz, leeches
 - **SuperMemo SM-2**, **Leitner** boxes, **Pimsleur**'s graduated intervals, and **Ebisu** v2
+- **FSRS's optimizer** (fsrs-rs, as Anki runs it), fitting the parameters to your reviews
 
 Every verse carries a log of its reviews, and an algorithm's view of a verse comes from all of
 them, so switching algorithms loses nothing. It gives exactly what the web app gives: the same
@@ -55,7 +56,7 @@ fsrs = srs.scheduler().with_algorithm(Algorithm.FSRS)
 learning steps do); `review` returns the verse with the review logged.
 
 ```ts
-let verse: VerseRecord = { id: "1", tag: "love", reference: "John 3:16", start: "2026-10-21", last: null, log: [] };
+let verse: VerseRecord = { id: "1", tag: "love", reference: "John 3:16", start: "2026-10-21", last: null, log: [], deck: null, passage: null };
 fsrs.preview(verse, "2026-10-21").map((o) => o.label); // → ["<1m","<6m","<10m","10d"]
 verse = fsrs.review(verse, Grade.Good, "2026-10-21");
 fsrs.status(verse, "2026-10-21").description; // → "Learning"
@@ -65,7 +66,7 @@ fsrs.memory(verse, "2026-10-21").map((m) => `${m.label}: ${m.value}`); // → ["
 ```
 
 ```python
-verse = VerseRecord(id="1", tag="love", reference="John 3:16", start="2026-10-21", last=None, log=[])
+verse = VerseRecord(id="1", tag="love", reference="John 3:16", start="2026-10-21", last=None, log=[], deck=None, passage=None)
 [o.label for o in fsrs.preview(verse, "2026-10-21")]  # → ["<1m","<6m","<10m","10d"]
 verse = fsrs.review(verse, Grade.GOOD, "2026-10-21")
 fsrs.status(verse, "2026-10-21").description  # → "Learning"
@@ -80,14 +81,14 @@ A verse with no reviews logged starts where the fixed schedule has it, so a vers
 reviews comes into FSRS every 7 days.
 
 ```ts
-const psalm: VerseRecord = { id: "2", tag: "word", reference: "Psalm 119:11", start: "2026-05-01", last: null, log: [] };
+const psalm: VerseRecord = { id: "2", tag: "word", reference: "Psalm 119:11", start: "2026-05-01", last: null, log: [], deck: null, passage: null };
 srs.scheduler().status(psalm, "2026-10-21").description; // → "Week 18 of 31"
 fsrs.status(psalm, "2026-10-21").description; // → "Every 7 days"
 fsrs.due([verse, psalm], "2026-10-21").map((v) => v.reference); // → ["Psalm 119:11"]
 ```
 
 ```python
-psalm = VerseRecord(id="2", tag="word", reference="Psalm 119:11", start="2026-05-01", last=None, log=[])
+psalm = VerseRecord(id="2", tag="word", reference="Psalm 119:11", start="2026-05-01", last=None, log=[], deck=None, passage=None)
 srs.scheduler().status(psalm, "2026-10-21").description  # → "Week 18 of 31"
 fsrs.status(psalm, "2026-10-21").description  # → "Every 7 days"
 [v.reference for v in fsrs.due([verse, psalm], "2026-10-21")]  # → ["Psalm 119:11"]
@@ -141,10 +142,34 @@ fsrs.withFsrsParams("0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 
 fsrs.with_fsrs_params("0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621").with_desired_retention(0.85).algorithm() == Algorithm.FSRS  # → true
 ```
 
+## Fitting FSRS to your reviews
+
+`optimizeFsrs` fits FSRS-6's parameters to the verses' reviews with fsrs-rs, the optimizer Anki
+runs. A verse counts from its first review as new. It takes a moment with many reviews, so call
+it from a worker; under 8 reviews the parameters stay the defaults.
+
+```ts
+const day = (n: number) => new Date(Date.UTC(2025, 0, 1 + n)).toISOString().slice(0, 10);
+const graded: VerseRecord[] = Array.from({ length: 40 }, (_, i) => ({ id: `${i}`, tag: "", reference: "Psalm 1:1", start: day(i), last: null, deck: null, passage: null,
+  log: [0, 1, 4, 11, 26, 56].map((n) => ({ tag: "Review" as const, day: day(i + n), grade: (i + n) % 7 === 0 ? Grade.Again : Grade.Good })) }));
+const fit = srs.optimizeFsrs(graded);
+[fit.reviews, fit.verses, fit.params.length]; // → [200,40,21]
+```
+
+```python
+from datetime import date, timedelta
+from scripture_srs import LogItemReview
+day = lambda n: (date(2025, 1, 1) + timedelta(days=n)).isoformat()
+graded = [VerseRecord(id=str(i), tag="", reference="Psalm 1:1", start=day(i), last=None, deck=None, passage=None,
+    log=[LogItemReview(day=day(i + n), grade=Grade.AGAIN if (i + n) % 7 == 0 else Grade.GOOD) for n in (0, 1, 4, 11, 26, 56)]) for i in range(40)]
+fit = srs.optimize_fsrs(graded)
+[fit.reviews, fit.verses, len(fit.params)]  # → [200,40,21]
+```
+
 ## Errors
 
 A bad day, verse, or option throws `SrsErrorException`, whose value says which
-(`InvalidDay`, `InvalidVerse`, `InvalidOptions`) and why.
+(`InvalidDay`, `InvalidVerse`, `InvalidOptions`, `Training`) and why.
 
 ```ts
 import { SrsErrorException } from "scripture-srs";
@@ -189,6 +214,7 @@ srs.parse_steps("1m 10m 1d")  # → [1.0,10.0,1440.0]
 | `ScriptureSrs.scheduler`, `schedulerFromJson` | A scheduler, by default or from the app's settings | [A scheduler](#a-scheduler), [settings](#the-web-apps-settings-and-data) |
 | `ScriptureSrs.algorithms` | Each algorithm: key, name, description, grades, adaptive | [A scheduler](#a-scheduler) |
 | `ScriptureSrs.readVerses`, `writeVerses` | Verses from and to the app's JSON | [settings and data](#the-web-apps-settings-and-data) |
+| `ScriptureSrs.optimizeFsrs`, `FsrsFit` | FSRS's parameters fitted to the reviews logged | [Fitting FSRS](#fitting-fsrs-to-your-reviews) |
 | `ScriptureSrs.parseSteps`, `formatInterval`, `version` | Anki's steps; an interval as a button shows it; the version | [Helpers](#helpers) |
 | `SrsScheduler.create`, `withAlgorithm`, `algorithm`, `withDurations` | Making a scheduler | [A scheduler](#a-scheduler) |
 | `SrsScheduler.withFsrsParams`, `withDesiredRetention` | FSRS's parameters and retention | [settings and data](#the-web-apps-settings-and-data) |

@@ -139,6 +139,10 @@ pub struct VerseRecord {
     /// The day it was last reviewed
     pub last: Option<String>,
     pub log: Vec<LogItem>,
+    /// The deck it's in, by id (none: the default deck)
+    pub deck: Option<String>,
+    /// The passage it's a card of, by id (a book or chapters added as one)
+    pub passage: Option<String>,
 }
 
 /// Where a verse is on a day
@@ -267,6 +271,8 @@ impl TryFrom<VerseRecord> for Verse {
             id: v.id,
             tag: v.tag,
             reference: v.reference,
+            deck: v.deck,
+            passage: v.passage,
         })
     }
 }
@@ -294,6 +300,8 @@ impl From<Verse> for VerseRecord {
             start: v.start.to_string(),
             last: v.last.map(|d| d.to_string()),
             log,
+            deck: v.deck,
+            passage: v.passage,
         }
     }
 }
