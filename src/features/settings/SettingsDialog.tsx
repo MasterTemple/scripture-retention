@@ -1,13 +1,15 @@
-import { CheckIcon, ChevronRightIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
+import { BellIcon, CalendarPlusIcon, CheckIcon, ChevronRightIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
-import { Label, Select, Switch } from "@/components/ui/primitives";
+import { Input, Label, Select, Switch } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
 import { WEEKDAYS } from "@/core/dates";
 import type { Durations, Order } from "@/core/schedule";
 import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
+import { allowNotifications, canNotify, canWake, downloadCalendar, needsInstall } from "@/lib/reminders";
+import type { Reminders } from "@/core/reminders";
 import { cn } from "@/lib/utils";
 import { useApp, useTranslation, type Theme } from "@/state/store";
 import { openPanel, viewUrl } from "@/state/ui";
@@ -72,6 +74,8 @@ export function SettingsDialog() {
           </Select>
         </Row>
       </Section>
+
+      <RemindersSection />
 
       <Section title="Queue">
         <Row title="Start a queued verse" description="The next one in the queue starts that day, in a week no verse has started yet." htmlFor={ids.start}>
@@ -226,5 +230,94 @@ function TranslationRow() {
       <span className="rounded-md bg-muted px-2 py-1 text-xs font-bold">{translation.abbreviation}</span>
       <ChevronRightIcon className="size-4 text-muted-foreground" />
     </button>
+  );
+}
+
+/**
+ * Reminders to review each day and to add a verse each week: notifications where the browser can
+ * send them, and the same reminders for the phone's calendar
+ */
+function RemindersSection() {
+  const reminders = useApp((s) => s.settings.reminders);
+  const update = useApp((s) => s.updateSettings);
+  const [permission, setPermission] = useState(() => (canNotify() ? Notification.permission : "denied"));
+  const ids = { review: useId(), reviewTime: useId(), verse: useId(), verseDay: useId(), verseTime: useId() };
+  const set = (patch: Partial<Reminders>) => update({ reminders: { ...reminders, ...patch } });
+
+  // Turning one on asks to notify, the first time
+  const turnOn = async (patch: Partial<Reminders>) => {
+    set(patch);
+    if (canNotify() && Notification.permission === "default") setPermission(await allowNotifications());
+  };
+
+  let status: ReactNode;
+  if (!canNotify()) status = "This browser can't show notifications: add the reminders to your calendar instead.";
+  else if (needsInstall()) status = "On an iPhone or iPad, notifications come once the app is on the Home Screen (Share, then Add to Home Screen).";
+  else if (permission === "denied") status = "Notifications are blocked for this site: allow them in the browser's site settings, or use your calendar.";
+  else if (!canWake()) status = "This browser reminds you while the app is open in the background, not once it's closed. For a reminder that always comes, add them to your calendar.";
+  else status = "Reminders come when your browser next wakes the app after the time set, which may be a little late. Your calendar keeps the time exactly.";
+
+  return (
+    <Section title="Reminders" description={typeof status === "string" ? status : undefined}>
+      <div className="flex items-center justify-between gap-3 py-3">
+        <Label htmlFor={ids.review} className="block min-w-0 flex-1 cursor-pointer space-y-0.5">
+          <span className="block text-sm font-medium">Review each day</span>
+          <span className="block text-xs font-normal text-muted-foreground">When verses are due</span>
+        </Label>
+        <Input
+          id={ids.reviewTime}
+          type="time"
+          aria-label="Review reminder time"
+          value={reminders.review.time}
+          onChange={(e) => e.target.value && set({ review: { ...reminders.review, time: e.target.value } })}
+          className="w-auto"
+          disabled={!reminders.review.enabled}
+        />
+        <Switch id={ids.review} checked={reminders.review.enabled} onCheckedChange={(enabled) => void turnOn({ review: { ...reminders.review, enabled } })} />
+      </div>
+      <div className="space-y-2 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor={ids.verse} className="block min-w-0 flex-1 cursor-pointer space-y-0.5">
+            <span className="block text-sm font-medium">Add a new verse</span>
+            <span className="block text-xs font-normal text-muted-foreground">When nothing is queued to start next</span>
+          </Label>
+          <Switch id={ids.verse} checked={reminders.newVerse.enabled} onCheckedChange={(enabled) => void turnOn({ newVerse: { ...reminders.newVerse, enabled } })} />
+        </div>
+        {reminders.newVerse.enabled && (
+          <div className="flex gap-2">
+            <Select
+              id={ids.verseDay}
+              aria-label="Day of the week"
+              value={reminders.newVerse.weekday}
+              onChange={(e) => set({ newVerse: { ...reminders.newVerse, weekday: Number(e.target.value) } })}
+            >
+              {WEEKDAYS.map((name, i) => (
+                <option key={name} value={i}>
+                  Each {name}
+                </option>
+              ))}
+            </Select>
+            <Input
+              id={ids.verseTime}
+              type="time"
+              aria-label="New verse reminder time"
+              value={reminders.newVerse.time}
+              onChange={(e) => e.target.value && set({ newVerse: { ...reminders.newVerse, time: e.target.value } })}
+              className="w-auto"
+            />
+          </div>
+        )}
+      </div>
+      <div className="grid gap-2 py-3 sm:grid-cols-2">
+        {canNotify() && permission === "default" && !needsInstall() && (
+          <Button variant="outline" className="h-11 sm:h-9" onClick={async () => setPermission(await allowNotifications())}>
+            <BellIcon /> Allow notifications
+          </Button>
+        )}
+        <Button variant="outline" className="h-11 sm:h-9" disabled={!reminders.review.enabled && !reminders.newVerse.enabled} onClick={downloadCalendar}>
+          <CalendarPlusIcon /> Add to my calendar
+        </Button>
+      </div>
+    </Section>
   );
 }

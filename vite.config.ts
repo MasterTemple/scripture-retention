@@ -22,6 +22,10 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       injectRegister: false,
+      // Our own service worker (src/sw.ts), which also shows reminders
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Scripture Retention",
@@ -42,7 +46,7 @@ export default defineConfig({
           { name: "Your verses", url: "./?view=verses" },
         ],
       },
-      workbox: {
+      injectManifest: {
         // Every font subset and both WebAssembly modules (logoxide's is over 5 MB)
         globPatterns: ["**/*.{js,css,html,svg,png,woff2,wasm}"],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,

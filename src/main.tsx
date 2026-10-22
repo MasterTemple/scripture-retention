@@ -3,12 +3,14 @@ import { createRoot } from "react-dom/client";
 import { loadTopos } from "@/bible/topos";
 import { trackKeyboard } from "@/lib/keyboard";
 import { registerOffline } from "@/lib/pwa";
+import { startReminders } from "@/lib/reminders";
 import App from "./App";
 import "./index.css";
 
 const root = createRoot(document.getElementById("root")!);
 registerOffline();
 trackKeyboard();
+startReminders();
 
 loadTopos().then(
   () =>
