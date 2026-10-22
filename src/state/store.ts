@@ -4,12 +4,15 @@ import { persist, type PersistStorage, type StorageValue } from "zustand/middlew
 import { BUILT_IN, DEFAULT_TRANSLATION } from "@/bible/translations";
 import type { Translation } from "@/bible/types";
 import { today, type Day } from "@/core/dates";
+import { DEFAULT_AUTO_START, dueFromQueue, type AutoStart, type Queued } from "@/core/queue";
 import { DEFAULT_DURATIONS, type Durations, type Order, type Verse } from "@/core/schedule";
 
 export type Theme = "system" | "light" | "dark";
 
 export interface Settings {
   durations: Durations;
+  /** Starting queued verses on a day of the week, or by hand */
+  autoStart: AutoStart;
   order: Order;
   /** Hour of the day (0-11) a new day of reviews begins */
   dayStartsAt: number;
@@ -23,11 +26,24 @@ export interface Settings {
 
 interface State {
   verses: Verse[];
+  /** Verses waiting to be started, in order */
+  queue: Queued[];
+  /** The last day the queue was looked at, so days the app wasn't opened on still start theirs */
+  queueChecked?: Day;
   settings: Settings;
 
   addVerses: (verses: Omit<Verse, "id">[]) => void;
   updateVerse: (id: string, patch: Partial<Omit<Verse, "id">>) => void;
   removeVerse: (id: string) => void;
+  queueVerses: (verses: Omit<Queued, "id">[]) => void;
+  updateQueued: (id: string, patch: Partial<Omit<Queued, "id">>) => void;
+  removeQueued: (id: string) => void;
+  /** Moves a queued verse earlier (-1) or later (1) */
+  reorderQueued: (id: string, by: number) => void;
+  /** Takes a queued verse out of the queue and starts it on `start` */
+  startQueued: (id: string, start: Day) => void;
+  /** Puts a verse back in the queue, forgetting its start */
+  unstart: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   /** Adds a translation (from fetch.bible's list, or uploaded) and reads from it */
   addTranslation: (t: Translation) => void;
@@ -83,8 +99,10 @@ export const useApp = create<State>()(
   persist(
     (set) => ({
       verses: [],
+      queue: [],
       settings: {
         durations: { ...DEFAULT_DURATIONS },
+        autoStart: { ...DEFAULT_AUTO_START },
         order: "phase",
         dayStartsAt: 0,
         translationId: DEFAULT_TRANSLATION,
@@ -96,6 +114,28 @@ export const useApp = create<State>()(
       addVerses: (verses) => set((s) => ({ verses: [...s.verses, ...verses.map((v) => ({ ...v, id: newId() }))] })),
       updateVerse: (id, patch) => set((s) => ({ verses: s.verses.map((v) => (v.id === id ? { ...v, ...patch } : v)) })),
       removeVerse: (id) => set((s) => ({ verses: s.verses.filter((v) => v.id !== id) })),
+      queueVerses: (verses) => set((s) => ({ queue: [...s.queue, ...verses.map((v) => ({ ...v, id: newId() }))] })),
+      updateQueued: (id, patch) => set((s) => ({ queue: s.queue.map((q) => (q.id === id ? { ...q, ...patch } : q)) })),
+      removeQueued: (id) => set((s) => ({ queue: s.queue.filter((q) => q.id !== id) })),
+      reorderQueued: (id, by) =>
+        set((s) => {
+          const queue = [...s.queue];
+          const from = queue.findIndex((q) => q.id === id);
+          const to = Math.max(0, Math.min(queue.length - 1, from + by));
+          if (from < 0 || from === to) return {};
+          queue.splice(to, 0, ...queue.splice(from, 1));
+          return { queue };
+        }),
+      startQueued: (id, start) =>
+        set((s) => {
+          const q = s.queue.find((x) => x.id === id);
+          return q ? { queue: s.queue.filter((x) => x.id !== id), verses: [...s.verses, { ...q, start }] } : {};
+        }),
+      unstart: (id) =>
+        set((s) => {
+          const v = s.verses.find((x) => x.id === id);
+          return v ? { verses: s.verses.filter((x) => x.id !== id), queue: [...s.queue, { id: v.id, tag: v.tag, ref: v.ref }] } : {};
+        }),
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       addTranslation: (t) =>
         set((s) => ({ settings: { ...s.settings, translations: [...s.settings.translations.filter((x) => x.id !== t.id), t], translationId: t.id } })),
@@ -112,14 +152,19 @@ export const useApp = create<State>()(
       name: "scripture-retention",
       version: 1,
       storage: lazyStorage(),
-      partialize: ({ verses, settings }) => ({ verses, settings }) as State,
+      partialize: ({ verses, queue, queueChecked, settings }) => ({ verses, queue, queueChecked, settings }) as State,
       // Settings added since a visit keep their defaults
       merge: (saved, current) => {
         const s = (saved ?? {}) as Partial<State>;
         return {
           ...current,
           ...s,
-          settings: { ...current.settings, ...s.settings, durations: { ...DEFAULT_DURATIONS, ...s.settings?.durations } },
+          settings: {
+            ...current.settings,
+            ...s.settings,
+            durations: { ...DEFAULT_DURATIONS, ...s.settings?.durations },
+            autoStart: { ...DEFAULT_AUTO_START, ...s.settings?.autoStart },
+          },
         };
       },
     },
@@ -160,3 +205,12 @@ export const useTranslation = (): Translation => {
   const added = useApp((s) => s.settings.translations);
   return BUILT_IN.find((t) => t.id === id) ?? added.find((t) => t.id === id) ?? BUILT_IN[0]!;
 };
+
+/** Starts the queued verses whose day has come (on `day`, or days since the app was last opened) */
+export function startDueQueued(day: Day = reviewDay()) {
+  const { queue, verses, queueChecked, settings } = useApp.getState();
+  const { started, waiting } = dueFromQueue(queue, verses, queueChecked, day, settings.autoStart);
+  if (started.length > 0) useApp.setState({ queue: waiting, verses: [...verses, ...started], queueChecked: day });
+  else if (queueChecked !== day) useApp.setState({ queueChecked: day });
+  return started;
+}

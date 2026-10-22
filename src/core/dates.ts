@@ -68,3 +68,10 @@ function daysInMonth(year: number, month: number): number {
 function format(y: number, m: number, d: number): Day {
   return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
+
+/** The day of the week, 0 Sunday to 6 Saturday */
+export function weekday(day: Day): number {
+  return new Date(toUtc(day)).getUTCDay();
+}
+
+export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

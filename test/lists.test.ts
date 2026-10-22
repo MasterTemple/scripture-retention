@@ -1,4 +1,4 @@
-import { test } from "vitest";
+import { expect, test } from "vitest";
 import assert from "node:assert/strict";
 import { countByBucket, entryStart, formatList, parseList } from "../src/core/lists.ts";
 import { DEFAULT_DURATIONS as D, status } from "../src/core/schedule.ts";
@@ -52,4 +52,14 @@ test("an export imports back to the same schedule", () => {
   const key = (v: { ref: string; tag: string; start: string }) => `${v.tag} ${v.ref} ${v.start}`;
   assert.deepEqual(again.map(key).sort(), verses.map(key).sort());
   assert.equal(status(again.find((v) => v.ref === "Titus 2:11-14")!, day, D).position, 9);
+});
+
+test("a queue heading queues the verses under it, and exports back", () => {
+  const { entries } = parseList("## Queue\n`#next` Romans 12:1-2\n#later Titus 2:11 @week 2\n");
+  expect(entries[0]).toMatchObject({ ref: "Romans 12:1-2", tag: "next", queued: true });
+  expect(entries[1]!.queued).toBeUndefined();
+  expect(countByBucket(entries, "2026-10-14", D)).toMatchObject({ queued: 1, weekly: 1 });
+  const text = formatList([], "2026-10-14", D, [{ id: "1", tag: "next", ref: "Romans 12:1-2" }]);
+  expect(text).toBe("## Queue\n\n`#next` Romans 12:1-2\n");
+  expect(parseList(text).entries[0]).toMatchObject({ ref: "Romans 12:1-2", queued: true });
 });

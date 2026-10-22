@@ -3,7 +3,7 @@ import { create } from "zustand";
 export type View = "review" | "verses";
 
 export type Panel =
-  | { kind: "edit"; verseId: string | null }
+  | { kind: "edit"; verseId: string | null; queue?: boolean }
   | { kind: "move"; verseId: string }
   | { kind: "import" }
   | { kind: "settings" }

@@ -12,13 +12,14 @@ import { cn } from "@/lib/utils";
 import { useApp } from "@/state/store";
 import { closePanel } from "@/state/ui";
 
-const EXAMPLE = "Once a day:\n`#guard-your-heart` Proverbs 4:23\n\nOnce a week:\n`#assurance` 1 John 5:13 @week 3\n`#desire` Proverbs 6:25 @2026-01-04";
+const EXAMPLE = "Once a day:\n`#guard-your-heart` Proverbs 4:23\n\nOnce a week:\n`#assurance` 1 John 5:13 @week 3\n`#desire` Proverbs 6:25 @2026-01-04\n\nQueue:\n`#renewed` Romans 12:1-2";
 
 const normalize = (ref: string) => ref.toLowerCase().replace(/\s+/g, " ").replace(/^psalms\b/, "psalm").trim();
 
 /** Adds many verses at once from a list (see `core/lists.ts`) */
 export function ImportDialog({ day }: { day: Day }) {
   const verses = useApp((s) => s.verses);
+  const queue = useApp((s) => s.queue);
   const durations = useApp((s) => s.settings.durations);
   const [text, setText] = useState("");
   const [skipExisting, setSkipExisting] = useState(true);
@@ -27,10 +28,10 @@ export function ImportDialog({ day }: { day: Day }) {
 
   const { kept, skipped, errors } = useMemo(() => {
     const { entries, errors } = parseList(text);
-    const existing = new Set(verses.map((v) => normalize(v.ref)));
+    const existing = new Set([...verses, ...queue].map((v) => normalize(v.ref)));
     const kept = skipExisting ? entries.filter((e) => !existing.has(normalize(e.ref))) : entries;
     return { kept, skipped: entries.length - kept.length, errors };
-  }, [text, verses, skipExisting]);
+  }, [text, verses, queue, skipExisting]);
   const counts = countByBucket(kept, day, durations);
 
   const paste = async () => {
@@ -42,7 +43,9 @@ export function ImportDialog({ day }: { day: Day }) {
   };
 
   const doImport = () => {
-    useApp.getState().addVerses(kept.map((e) => ({ tag: e.tag, ref: e.ref, start: entryStart(e, day, durations) })));
+    const app = useApp.getState();
+    app.addVerses(kept.filter((e) => !e.queued).map((e) => ({ tag: e.tag, ref: e.ref, start: entryStart(e, day, durations) })));
+    app.queueVerses(kept.filter((e) => e.queued).map((e) => ({ tag: e.tag, ref: e.ref })));
     toast.success(`Imported ${kept.length} ${kept.length === 1 ? "verse" : "verses"}`);
     closePanel();
   };
@@ -70,7 +73,7 @@ export function ImportDialog({ day }: { day: Day }) {
             <p>Headings put the verses below them in a bucket, starting today:</p>
             <pre className="overflow-x-auto rounded-lg bg-card px-3 py-2 font-mono text-xs leading-relaxed text-foreground">{EXAMPLE}</pre>
             <p>
-              End a line with <code>@day 12</code>, <code>@week 3</code>, or <code>@month 5</code> to place it further in, or with the date its daily reviews
+              Under a <code>Queue:</code> heading, verses wait to be started, one each week. End a line with <code>@day 12</code>, <code>@week 3</code>, or <code>@month 5</code> to place it further in, or with the date its daily reviews
               began. The topic and backticks are optional; <code>#?</code> is a verse without a topic yet. An exported list imports back the same.
             </p>
           </div>
@@ -115,6 +118,7 @@ export function ImportDialog({ day }: { day: Day }) {
                   {counts[p]} {PHASE_NAMES[p].toLowerCase()}
                 </span>
               ))}
+              {counts.queued > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{counts.queued} queued</span>}
             </div>
           ) : (
             <div className="text-muted-foreground">{text.trim() ? "No verses found yet" : "Nothing pasted yet"}</div>

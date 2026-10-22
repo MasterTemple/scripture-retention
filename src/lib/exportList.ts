@@ -4,12 +4,13 @@ import { reviewDay, useApp } from "@/state/store";
 
 /** Every verse as a list that imports back the same (each with its start date) */
 export function listText(): string {
-  const { verses, settings } = useApp.getState();
-  return formatList(verses, reviewDay(), settings.durations);
+  const { verses, queue, settings } = useApp.getState();
+  return formatList(verses, reviewDay(), settings.durations, queue);
 }
 
 export async function copyList() {
-  const count = useApp.getState().verses.length;
+  const { verses, queue } = useApp.getState();
+  const count = verses.length + queue.length;
   try {
     await navigator.clipboard.writeText(listText());
     toast.success(`Copied ${count} ${count === 1 ? "verse" : "verses"}`);

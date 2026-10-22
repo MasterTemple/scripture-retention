@@ -1,6 +1,6 @@
 import { BookOpenCheckIcon, LibraryIcon, SettingsIcon } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
-import { Toaster } from "sonner";
+import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/overlays";
 import { dueVerses } from "@/core/schedule";
@@ -13,7 +13,7 @@ import { MoveDialog } from "@/features/verses/MoveDialog";
 import { VersesView } from "@/features/verses/VersesView";
 import { cn } from "@/lib/utils";
 import { startReview } from "@/state/review";
-import { useApp, useReviewDay } from "@/state/store";
+import { startDueQueued, useApp, useReviewDay } from "@/state/store";
 import { closePanel, openPanel, showView, useUi, type View } from "@/state/ui";
 
 function useTheme() {
@@ -62,7 +62,16 @@ export default function App() {
   const day = useReviewDay();
   const view = useUi((s) => s.view);
   const due = useDueCount(day);
-  const count = useApp((s) => s.verses.length);
+  const count = useApp((s) => s.verses.length + s.queue.length);
+
+  // Queued verses whose day has come start (on opening the app, a new day, or a change to the queue)
+  const queue = useApp((s) => s.queue);
+  const autoStart = useApp((s) => s.settings.autoStart);
+  useEffect(() => {
+    const started = startDueQueued(day);
+    if (started.length === 1) toast.success(`Started ${started[0]!.ref} from your queue`);
+    else if (started.length > 1) toast.success(`Started ${started.length} verses from your queue`);
+  }, [day, queue, autoStart]);
 
   const go = (v: View) => {
     // Coming back to the review takes up what's due now, keeping the card in front
@@ -156,7 +165,7 @@ function Panels({ day }: { day: string }) {
   const moving = panel?.kind === "move" ? verses.find((v) => v.id === panel.verseId) : undefined;
   return (
     <Dialog open={panel !== null} onOpenChange={(open) => !open && closePanel()}>
-      {panel?.kind === "edit" && <EditDialog key={panel.verseId ?? "new"} verseId={panel.verseId} day={day} />}
+      {panel?.kind === "edit" && <EditDialog key={panel.verseId ?? "new"} verseId={panel.verseId} queue={panel.queue} day={day} />}
       {panel?.kind === "import" && <ImportDialog day={day} />}
       {panel?.kind === "settings" && <SettingsDialog />}
       {panel?.kind === "translations" && <TranslationDialog onDone={() => openPanel({ kind: "settings" })} />}

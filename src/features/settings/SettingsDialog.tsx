@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
 import { Label, Select } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
+import { WEEKDAYS } from "@/core/dates";
 import type { Durations, Order } from "@/core/schedule";
 import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
 import { cn } from "@/lib/utils";
@@ -37,8 +38,8 @@ function Row({ title, description, children, htmlFor }: { title: string; descrip
 export function SettingsDialog() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
-  const count = useApp((s) => s.verses.length);
-  const ids = { day: useId() };
+  const count = useApp((s) => s.verses.length + s.queue.length);
+  const ids = { day: useId(), start: useId() };
 
   return (
     <DialogContent title="Settings" description="Saved on this device." onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -61,6 +62,24 @@ export function SettingsDialog() {
                 {h === 0 ? "Midnight" : `${h}:00 AM`}
               </option>
             ))}
+          </Select>
+        </Row>
+      </Section>
+
+      <Section title="Queue">
+        <Row title="Start a queued verse" description="The next one in the queue starts that day, in a week no verse has started yet." htmlFor={ids.start}>
+          <Select
+            id={ids.start}
+            className="w-40"
+            value={settings.autoStart.enabled ? settings.autoStart.weekday : "off"}
+            onChange={(e) => update({ autoStart: e.target.value === "off" ? { ...settings.autoStart, enabled: false } : { enabled: true, weekday: Number(e.target.value) } })}
+          >
+            {WEEKDAYS.map((name, i) => (
+              <option key={name} value={i}>
+                Each {name}
+              </option>
+            ))}
+            <option value="off">By hand</option>
           </Select>
         </Row>
       </Section>
