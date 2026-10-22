@@ -1,4 +1,4 @@
-import { BellIcon, CalendarPlusIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
+import { BellIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { ACCENTS, accentFromHex, sameAccent, swatch } from "@/lib/color";
 import { checkForUpdate } from "@/lib/pwa";
 import { resetDay } from "@/state/review";
 import { reviewDay, useApp, useTranslation, type Theme } from "@/state/store";
-import { openPanel, viewUrl } from "@/state/ui";
+import { openPanel, useUi, viewUrl, type SettingsTab } from "@/state/ui";
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
@@ -40,15 +40,69 @@ function Row({ title, description, children, htmlFor }: { title: string; descrip
   );
 }
 
+const TABS: { value: SettingsTab; label: string; icon: typeof BellIcon }[] = [
+  { value: "review", label: "Review", icon: BookOpenCheckIcon },
+  { value: "schedule", label: "Schedule", icon: CalendarDaysIcon },
+  { value: "reminders", label: "Reminders", icon: BellIcon },
+  { value: "bible", label: "Bible", icon: BookMarkedIcon },
+  { value: "appearance", label: "Appearance", icon: PaletteIcon },
+  { value: "data", label: "Data", icon: DatabaseIcon },
+];
+
+/** Settings, a tab for each kind (the last one open opens again): a row on a phone, a sidebar wider */
 export function SettingsDialog() {
+  const tab = useUi((s) => s.settingsTab);
+  return (
+    <DialogContent
+      title="Settings"
+      description="Saved on this device."
+      onOpenAutoFocus={(e) => e.preventDefault()}
+      // One height for every tab, so moving between them doesn't resize the sheet
+      className="max-sm:h-[calc(100dvh-var(--keyboard,0px)-env(safe-area-inset-top)-0.75rem)] sm:h-[min(90dvh,680px)] sm:max-w-2xl"
+    >
+      <div className="sm:grid sm:min-h-full sm:grid-cols-[11rem_1fr]">
+        <div className="sticky top-0 z-10 border-b bg-popover sm:self-start sm:border-b-0">
+          {/* A row to scroll sideways on a phone; a column beside the settings wider */}
+          <div role="tablist" aria-label="Settings" className="flex gap-1 overflow-x-auto px-3 py-2 scrollbar-thin sm:flex-col sm:overflow-visible sm:py-3" data-no-swipe>
+            {TABS.map((t) => (
+              <button
+                key={t.value}
+                role="tab"
+                aria-selected={tab === t.value}
+                onClick={() => useUi.setState({ settingsTab: t.value })}
+                className={cn(
+                  "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors sm:h-9 sm:gap-2.5 [&_svg]:size-4",
+                  tab === t.value ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                ref={(el) => {
+                  if (el && tab === t.value) el.scrollIntoView({ block: "nearest", inline: "nearest" });
+                }}
+              >
+                <t.icon /> {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div role="tabpanel" key={tab} className="animate-fade-up pb-2 sm:border-l">
+          {tab === "review" && <ReviewTab />}
+          {tab === "schedule" && <ScheduleTab />}
+          {tab === "reminders" && <RemindersSection />}
+          {tab === "bible" && <BibleTab />}
+          {tab === "appearance" && <AppearanceTab />}
+          {tab === "data" && <DataTab />}
+        </div>
+      </div>
+    </DialogContent>
+  );
+}
+
+function ReviewTab() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
-  const count = useApp((s) => s.verses.length + s.queue.length);
-  const ids = { day: useId(), start: useId(), steady: useId(), prompt: useId() };
-
+  const ids = { day: useId(), steady: useId(), prompt: useId() };
   return (
-    <DialogContent title="Settings" description="Saved on this device." onOpenAutoFocus={(e) => e.preventDefault()}>
-      <Section title="Review">
+    <>
+      <Section title="Cards">
         <Row title="Order" description={settings.order === "phase" ? "Daily verses first, then weekly, then monthly." : "All mixed together."}>
           <Segmented<Order>
             size="sm"
@@ -70,41 +124,7 @@ export function SettingsDialog() {
         <Row title="Show the prompt" description="“Say the topic, the reference, and the verse aloud” on a card before its verse shows." htmlFor={ids.prompt}>
           <Switch id={ids.prompt} checked={settings.showPrompt} onCheckedChange={(showPrompt) => update({ showPrompt })} />
         </Row>
-        <ResetTodayRow />
-        <Row title="New day begins at" description="Reviews before this hour count for the day before." htmlFor={ids.day}>
-          <Select id={ids.day} className="w-32" value={settings.dayStartsAt} onChange={(e) => update({ dayStartsAt: Number(e.target.value) })}>
-            {Array.from({ length: 12 }, (_, h) => (
-              <option key={h} value={h}>
-                {h === 0 ? "Midnight" : `${h}:00 AM`}
-              </option>
-            ))}
-          </Select>
-        </Row>
-      </Section>
-
-      <RemindersSection />
-
-      <Section title="Queue">
-        <Row title="Start a queued verse" description="The next one in the queue starts that day, in a week no verse has started yet." htmlFor={ids.start}>
-          <Select
-            id={ids.start}
-            className="w-40"
-            value={settings.autoStart.enabled ? settings.autoStart.weekday : "off"}
-            onChange={(e) => update({ autoStart: e.target.value === "off" ? { ...settings.autoStart, enabled: false } : { enabled: true, weekday: Number(e.target.value) } })}
-          >
-            {WEEKDAYS.map((name, i) => (
-              <option key={name} value={i}>
-                Each {name}
-              </option>
-            ))}
-            <option value="off">By hand</option>
-          </Select>
-        </Row>
-      </Section>
-
-      <Section title="Bible">
-        <TranslationRow />
-        <Row title="Text size">
+        <Row title="Text size" description="The verse's, once it shows.">
           <Stepper
             value={settings.textScale}
             min={0.8}
@@ -115,29 +135,88 @@ export function SettingsDialog() {
           />
         </Row>
       </Section>
-
-      <Section title="Appearance">
-        <Row title="Theme">
-          <Segmented<Theme>
-            size="sm"
-            value={settings.theme}
-            onChange={(theme) => update({ theme })}
-            options={[
-              { value: "light", label: <SunIcon />, title: "Light" },
-              { value: "dark", label: <MoonIcon />, title: "Dark" },
-              { value: "system", label: <MonitorIcon />, title: "System" },
-            ]}
-          />
+      <Section title="Days">
+        <Row title="New day begins at" description="Reviews before this hour count for the day before." htmlFor={ids.day}>
+          <Select id={ids.day} className="w-32" value={settings.dayStartsAt} onChange={(e) => update({ dayStartsAt: Number(e.target.value) })}>
+            {Array.from({ length: 12 }, (_, h) => (
+              <option key={h} value={h}>
+                {h === 0 ? "Midnight" : `${h}:00 AM`}
+              </option>
+            ))}
+          </Select>
         </Row>
-        <AccentPicker />
+        <ResetTodayRow />
       </Section>
+    </>
+  );
+}
 
-      <Section title="Schedule" description="Changing these moves every verse, since where a verse is follows from its start date.">
+function ScheduleTab() {
+  const autoStart = useApp((s) => s.settings.autoStart);
+  const update = useApp((s) => s.updateSettings);
+  const id = useId();
+  return (
+    <>
+      <Section title="Phases" description="Changing these moves every verse, since where a verse is follows from its start date.">
         <DurationRow setting="dailyWeeks" title="Daily for" unit="weeks" />
         <DurationRow setting="weeklyMonths" title="Then weekly for" unit="months" />
         <DurationRow setting="monthlyYears" title="Then monthly for" unit="years" />
       </Section>
+      <Section title="Queue">
+        <Row title="Start a queued verse" description="The next one in the queue starts that day, in a week no verse has started yet." htmlFor={id}>
+          <Select
+            id={id}
+            className="w-40"
+            value={autoStart.enabled ? autoStart.weekday : "off"}
+            onChange={(e) => update({ autoStart: e.target.value === "off" ? { ...autoStart, enabled: false } : { enabled: true, weekday: Number(e.target.value) } })}
+          >
+            {WEEKDAYS.map((name, i) => (
+              <option key={name} value={i}>
+                Each {name}
+              </option>
+            ))}
+            <option value="off">By hand</option>
+          </Select>
+        </Row>
+      </Section>
+    </>
+  );
+}
 
+function BibleTab() {
+  return (
+    <Section title="Translation" description="Pick a built-in Bible, browse fetch.bible's 1,400, or upload your own. Downloaded books are kept for offline use.">
+      <TranslationRow />
+    </Section>
+  );
+}
+
+function AppearanceTab() {
+  const theme = useApp((s) => s.settings.theme);
+  const update = useApp((s) => s.updateSettings);
+  return (
+    <Section title="Appearance">
+      <Row title="Theme">
+        <Segmented<Theme>
+          size="sm"
+          value={theme}
+          onChange={(theme) => update({ theme })}
+          options={[
+            { value: "light", label: <SunIcon />, title: "Light" },
+            { value: "dark", label: <MoonIcon />, title: "Dark" },
+            { value: "system", label: <MonitorIcon />, title: "System" },
+          ]}
+        />
+      </Row>
+      <AccentPicker />
+    </Section>
+  );
+}
+
+function DataTab() {
+  const count = useApp((s) => s.verses.length + s.queue.length);
+  return (
+    <>
       <Section title="Your verses" description="They're kept in this browser only. Save a copy now and then; it imports back the same.">
         <div className="grid grid-cols-2 gap-2 py-3">
           <Button variant="outline" className="h-11 sm:h-9" onClick={() => openPanel({ kind: "import" })}>
@@ -156,16 +235,13 @@ export function SettingsDialog() {
           </Button>
         </div>
       </Section>
-
       <AppSection />
-
       <Section title="Links" description="For a bookmark or a home-screen shortcut.">
         <LinkRow title="Today's review" url={viewUrl("review")} />
         <LinkRow title="Your verses" url={viewUrl("verses")} />
         <LinkRow title="Import" url={viewUrl("import")} />
       </Section>
-      <div className="h-2" />
-    </DialogContent>
+    </>
   );
 }
 

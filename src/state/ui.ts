@@ -2,6 +2,8 @@ import { create } from "zustand";
 
 export type View = "review" | "verses";
 
+export type SettingsTab = "review" | "schedule" | "reminders" | "bible" | "appearance" | "data";
+
 export type Panel =
   | { kind: "edit"; verseId: string | null; queue?: boolean }
   | { kind: "move"; verseId: string }
@@ -13,6 +15,8 @@ export type Panel =
 interface Ui {
   view: View;
   panel: Panel;
+  /** The settings tab open last, opened again with them */
+  settingsTab: SettingsTab;
 }
 
 /**
@@ -21,7 +25,7 @@ interface Ui {
  */
 function fromAddress(): Ui {
   const view = new URLSearchParams(location.search).get("view");
-  return { view: view === "verses" || view === "import" ? "verses" : "review", panel: view === "import" ? { kind: "import" } : null };
+  return { view: view === "verses" || view === "import" ? "verses" : "review", panel: view === "import" ? { kind: "import" } : null, settingsTab: "review" };
 }
 
 export const useUi = create<Ui>()(() => fromAddress());
