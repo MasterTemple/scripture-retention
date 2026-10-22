@@ -64,6 +64,7 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
   // The topic and reference where they'll be once the verse shows, so nothing moves on revealing
   const steady = useApp((s) => s.settings.steadyCard);
   const top = revealed || steady;
+  const prompt = useApp((s) => s.settings.showPrompt);
   const s = status(verse, day, durations);
   const swipe = useMemo(
     () =>
@@ -111,7 +112,7 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
         </div>
         {revealed ? (
           <VerseText reference={verse.ref} />
-        ) : (
+        ) : !prompt ? null : (
           <p className={cn("text-sm text-balance text-muted-foreground", top ? "px-5 py-5 sm:px-8 sm:py-6" : "max-w-xs px-6 pb-8")}>
             Say the topic, the reference, and the verse aloud, then tap to check.
           </p>

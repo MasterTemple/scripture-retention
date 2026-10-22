@@ -120,9 +120,12 @@ Settings has each link ready to copy, for a bookmark or a shortcut.
 
 ## Settings
 
-Order (daily, weekly, monthly; or shuffled), keeping the card steady, the hour a new day begins,
-reminders, the day queued verses start, the translation, the text size, the theme, and how long each
-phase lasts (7 weeks, 7 months, 7 years).
+Order (daily, weekly, monthly; or shuffled), keeping the card steady, showing the prompt to say the
+verse aloud, the hour a new day begins, reminders, the day queued verses start, the translation, the
+text size, the theme and accent color (one of ten, or any color you pick: its hue is used at a
+lightness that stays readable in both themes), and how long each phase lasts (7 weeks, 7 months, 7
+years). *Check for updates* gets a new version of the app now, and *Review today again* makes the
+verses reviewed today due again.
 
 ## How it's built
 

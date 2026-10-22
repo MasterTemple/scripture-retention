@@ -5,32 +5,36 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* The accent's hue and how vivid it is (Settings sets them; 1 is full), its lightness fixed
+     for each theme so text on it stays readable whatever the color */
+  --accent-h: 278;
+  --accent-c: 1;
   --background: oklch(0.975 0.004 85);
   --foreground: oklch(0.2 0.01 60);
   --card: oklch(0.995 0.002 85);
   --card-foreground: var(--foreground);
   --popover: oklch(0.995 0.002 85);
   --popover-foreground: var(--foreground);
-  --primary: oklch(0.5 0.17 278);
+  --primary: oklch(0.5 calc(0.17 * var(--accent-c)) var(--accent-h));
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.94 0.008 85);
   --secondary-foreground: oklch(0.25 0.01 60);
   --muted: oklch(0.945 0.006 85);
   --muted-foreground: oklch(0.5 0.012 60);
-  --accent: oklch(0.93 0.025 278);
-  --accent-foreground: oklch(0.32 0.12 278);
+  --accent: oklch(0.93 calc(0.025 * var(--accent-c)) var(--accent-h));
+  --accent-foreground: oklch(0.32 calc(0.12 * var(--accent-c)) var(--accent-h));
   --success: oklch(0.56 0.13 155);
   --success-soft: oklch(0.94 0.05 155);
   --destructive: oklch(0.56 0.2 25);
   --destructive-soft: oklch(0.95 0.035 25);
   --warning: oklch(0.7 0.14 70);
   /* Each phase's color: daily, weekly, monthly */
-  --daily: oklch(0.5 0.17 278);
+  --daily: oklch(0.5 calc(0.17 * var(--daily-c, var(--accent-c))) var(--daily-h, var(--accent-h)));
   --weekly: oklch(0.55 0.13 155);
   --monthly: oklch(0.6 0.15 55);
   --border: oklch(0.9 0.008 85);
   --input: oklch(0.88 0.01 85);
-  --ring: oklch(0.6 0.15 278);
+  --ring: oklch(0.6 calc(0.15 * var(--accent-c)) var(--accent-h));
   --radius: 0.75rem;
 }
 
@@ -41,25 +45,25 @@
   --card-foreground: var(--foreground);
   --popover: oklch(0.22 0.008 285);
   --popover-foreground: var(--foreground);
-  --primary: oklch(0.68 0.15 278);
-  --primary-foreground: oklch(0.16 0.02 278);
+  --primary: oklch(0.68 calc(0.15 * var(--accent-c)) var(--accent-h));
+  --primary-foreground: oklch(0.16 calc(0.02 * var(--accent-c)) var(--accent-h));
   --secondary: oklch(0.26 0.008 285);
   --secondary-foreground: oklch(0.92 0.004 85);
   --muted: oklch(0.25 0.007 285);
   --muted-foreground: oklch(0.68 0.01 285);
-  --accent: oklch(0.3 0.05 278);
-  --accent-foreground: oklch(0.88 0.06 278);
+  --accent: oklch(0.3 calc(0.05 * var(--accent-c)) var(--accent-h));
+  --accent-foreground: oklch(0.88 calc(0.06 * var(--accent-c)) var(--accent-h));
   --success: oklch(0.72 0.14 155);
   --success-soft: oklch(0.3 0.06 155);
   --destructive: oklch(0.68 0.18 25);
   --destructive-soft: oklch(0.3 0.07 25);
   --warning: oklch(0.78 0.13 75);
-  --daily: oklch(0.72 0.14 278);
+  --daily: oklch(0.72 calc(0.14 * var(--daily-c, var(--accent-c))) var(--daily-h, var(--accent-h)));
   --weekly: oklch(0.74 0.14 155);
   --monthly: oklch(0.77 0.13 60);
   --border: oklch(0.29 0.008 285);
   --input: oklch(0.33 0.01 285);
-  --ring: oklch(0.65 0.14 278);
+  --ring: oklch(0.65 calc(0.14 * var(--accent-c)) var(--accent-h));
 }
 
 @theme inline {

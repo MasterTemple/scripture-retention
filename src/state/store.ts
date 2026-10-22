@@ -6,6 +6,7 @@ import type { Translation } from "@/bible/types";
 import { today, type Day } from "@/core/dates";
 import { DEFAULT_AUTO_START, dueFromQueue, type AutoStart, type Queued } from "@/core/queue";
 import { DEFAULT_REMINDERS, type Reminders } from "@/core/reminders";
+import { DEFAULT_ACCENT, type Accent } from "@/lib/color";
 import { DEFAULT_DURATIONS, type Durations, type Order, type Verse } from "@/core/schedule";
 
 export type Theme = "system" | "light" | "dark";
@@ -21,6 +22,9 @@ export interface Settings {
   /** Translations added from fetch.bible's list or uploaded */
   translations: Translation[];
   reminders: Reminders;
+  accent: Accent;
+  /** Show the prompt to say the verse aloud on a card before it's revealed */
+  showPrompt: boolean;
   /** Show a card's topic and reference the same before and after revealing the verse */
   steadyCard: boolean;
   /** How large the verse is set on a card, 1 being the default */
@@ -112,6 +116,8 @@ export const useApp = create<State>()(
         translationId: DEFAULT_TRANSLATION,
         translations: [],
         steadyCard: true,
+        showPrompt: true,
+        accent: DEFAULT_ACCENT,
         reminders: DEFAULT_REMINDERS,
         textScale: 1,
         theme: "system",

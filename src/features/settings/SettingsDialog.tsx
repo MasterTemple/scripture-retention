@@ -11,6 +11,7 @@ import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
 import { allowNotifications, canNotify, canWake, downloadCalendar, needsInstall } from "@/lib/reminders";
 import type { Reminders } from "@/core/reminders";
 import { cn } from "@/lib/utils";
+import { ACCENTS, accentFromHex, sameAccent, swatch } from "@/lib/color";
 import { checkForUpdate } from "@/lib/pwa";
 import { resetDay } from "@/state/review";
 import { reviewDay, useApp, useTranslation, type Theme } from "@/state/store";
@@ -43,7 +44,7 @@ export function SettingsDialog() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
   const count = useApp((s) => s.verses.length + s.queue.length);
-  const ids = { day: useId(), start: useId(), steady: useId() };
+  const ids = { day: useId(), start: useId(), steady: useId(), prompt: useId() };
 
   return (
     <DialogContent title="Settings" description="Saved on this device." onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -65,6 +66,9 @@ export function SettingsDialog() {
           htmlFor={ids.steady}
         >
           <Switch id={ids.steady} checked={settings.steadyCard} onCheckedChange={(steadyCard) => update({ steadyCard })} />
+        </Row>
+        <Row title="Show the prompt" description="“Say the topic, the reference, and the verse aloud” on a card before its verse shows." htmlFor={ids.prompt}>
+          <Switch id={ids.prompt} checked={settings.showPrompt} onCheckedChange={(showPrompt) => update({ showPrompt })} />
         </Row>
         <ResetTodayRow />
         <Row title="New day begins at" description="Reviews before this hour count for the day before." htmlFor={ids.day}>
@@ -125,6 +129,7 @@ export function SettingsDialog() {
             ]}
           />
         </Row>
+        <AccentPicker />
       </Section>
 
       <Section title="Schedule" description="Changing these moves every verse, since where a verse is follows from its start date.">
@@ -368,5 +373,59 @@ function AppSection() {
         </Button>
       </Row>
     </Section>
+  );
+}
+
+/** The accent color: a few to pick from, or any color (its hue, at a lightness that stays readable) */
+function AccentPicker() {
+  const accent = useApp((s) => s.settings.accent);
+  const update = useApp((s) => s.updateSettings);
+  const preset = ACCENTS.find((a) => sameAccent(a.accent, accent));
+  return (
+    <div className="space-y-3 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-sm font-medium">Accent color</span>
+        <span className="text-xs text-muted-foreground">{preset?.name ?? "Custom"}</span>
+      </div>
+      <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-label="Accent color">
+        {ACCENTS.map(({ name, accent: a }) => {
+          const on = sameAccent(a, accent);
+          return (
+            <button
+              key={name}
+              role="radio"
+              aria-checked={on}
+              aria-label={name}
+              title={name}
+              onClick={() => update({ accent: a })}
+              className={cn(
+                "flex size-10 items-center justify-center rounded-full text-white ring-offset-2 ring-offset-popover transition-transform active:scale-90 sm:size-8",
+                on && "ring-2 ring-foreground/70",
+              )}
+              style={{ background: swatch(a) }}
+            >
+              {on && <CheckIcon className="size-4" />}
+            </button>
+          );
+        })}
+        {/* Any color: the browser's own picker */}
+        <label
+          title="Pick any color"
+          className={cn(
+            "relative flex size-10 cursor-pointer items-center justify-center rounded-full ring-offset-2 ring-offset-popover active:scale-90 sm:size-8",
+            !preset && "ring-2 ring-foreground/70",
+          )}
+          style={{ background: preset ? "conic-gradient(from 0deg, oklch(0.6 0.17 25), oklch(0.6 0.17 90), oklch(0.6 0.17 150), oklch(0.6 0.17 220), oklch(0.6 0.17 290), oklch(0.6 0.17 360))" : swatch(accent) }}
+        >
+          {!preset ? <CheckIcon className="size-4 text-white" /> : <PlusIcon className="size-4 text-white drop-shadow" />}
+          <input
+            type="color"
+            aria-label="Pick any color"
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+            onChange={(e) => update({ accent: accentFromHex(e.target.value) })}
+          />
+        </label>
+      </div>
+    </div>
   );
 }

@@ -23,11 +23,18 @@
       }
     </script>
     <script>
-      // Set the theme before the first paint, so a dark page never flashes light
+      // Set the theme and accent before the first paint, so a dark page never flashes light, nor
+      // the accent indigo (src/lib/color.ts sets the accent fully once the app runs)
       try {
-        const theme = JSON.parse(localStorage.getItem("scripture-retention") || "{}")?.state?.settings?.theme ?? "system";
+        const settings = JSON.parse(localStorage.getItem("scripture-retention") || "{}")?.state?.settings ?? {};
+        const theme = settings.theme ?? "system";
         const dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.classList.toggle("dark", dark);
+        const accent = settings.accent;
+        if (accent) {
+          document.documentElement.style.setProperty("--accent-h", accent.hue);
+          document.documentElement.style.setProperty("--accent-c", accent.chroma);
+        }
       } catch {}
     </script>
   </head>

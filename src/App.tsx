@@ -11,6 +11,7 @@ import { EditDialog } from "@/features/verses/EditDialog";
 import { ImportDialog } from "@/features/verses/ImportDialog";
 import { MoveDialog } from "@/features/verses/MoveDialog";
 import { VersesView } from "@/features/verses/VersesView";
+import { applyAccent } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import { startReview } from "@/state/review";
 import { startDueQueued, useApp, useReviewDay } from "@/state/store";
@@ -18,6 +19,8 @@ import { closePanel, openPanel, showView, useUi, type View } from "@/state/ui";
 
 function useTheme() {
   const theme = useApp((s) => s.settings.theme);
+  const accent = useApp((s) => s.settings.accent);
+  useEffect(() => applyAccent(accent), [accent]);
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
