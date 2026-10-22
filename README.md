@@ -8,9 +8,19 @@ Each verse is said aloud (its topic, its reference, then the verse):
 2. once a week, every week, for 7 months;
 3. once a month, every month, for 7 years.
 
-It isn't for memorizing a verse, but for retaining one and meditating on it. Adding a verse a week
-fills the daily, weekly, and monthly windows over 7 years, after which the review takes 5-10
-minutes a day.
+Note: this is not performed in order to memorize a verse, but to retain a verse
+you have already memorized, and to foster meditation on it.
+
+It is designed that you would add 1 verse each week. Doing it at this rate will
+result in reciting 23 verses each day, but that is after you have completely
+filled the moving window of daily, weekly, and monthly verses (which takes 7
+years to build up to). At that point, it will be a very manageable 5-10 minute
+activity each day.
+
+You are free to add as many verses as you would like per week, however it is
+encouraged that you prioritize maintaining and reviewing previous verses,
+rather than memorizing more and more, lest in you forget what you have worked
+towards.
 
 **Use it: [mastertemple.github.io/scripture-retention](https://mastertemple.github.io/scripture-retention/)**
 
@@ -122,7 +132,7 @@ Settings has each link ready to copy, for a bookmark or a shortcut.
 
 Order (daily, weekly, monthly; or shuffled), keeping the card steady, showing the prompt to say the
 verse aloud, the hour a new day begins, reminders, the day queued verses start, the translation, the
-text size, the theme and accent color (one of ten, or any color you pick: its hue is used at a
+text size, the title bar, the theme and accent color (one of ten, or any color you pick: its hue is used at a
 lightness that stays readable in both themes), and how long each phase lasts (7 weeks, 7 months, 7
 years). *Check for updates* gets a new version of the app now, and *Review today again* makes the
 verses reviewed today due again.

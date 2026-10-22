@@ -106,7 +106,7 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
         )}
       >
         {/* The topic and reference stay put while a long passage scrolls below them */}
-        <div className={cn("px-5 sm:px-8", top ? "sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 rounded-t-2xl border-b bg-card/95 py-4 backdrop-blur" : "py-8")}>
+        <div className={cn("px-5 sm:px-8", top ? "sticky top-[calc(var(--header-h)+env(safe-area-inset-top))] z-10 rounded-t-2xl border-b bg-card/95 py-4 backdrop-blur" : "py-8")}>
           <div className={cn("font-semibold break-words text-primary", top ? "text-xl" : "text-2xl sm:text-3xl")}>#{verse.tag || "?"}</div>
           <div className={cn("font-serif font-semibold tracking-tight", top ? "text-2xl" : "mt-2 text-3xl sm:text-4xl")}>{verse.ref}</div>
         </div>

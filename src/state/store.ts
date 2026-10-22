@@ -23,6 +23,8 @@ export interface Settings {
   translations: Translation[];
   reminders: Reminders;
   accent: Accent;
+  /** Show the bar at the top with the app's name (wider, it stays for the tabs, without the name) */
+  showHeader: boolean;
   /** Show the prompt to say the verse aloud on a card before it's revealed */
   showPrompt: boolean;
   /** Show a card's topic and reference the same before and after revealing the verse */
@@ -118,6 +120,7 @@ export const useApp = create<State>()(
         steadyCard: true,
         showPrompt: true,
         accent: DEFAULT_ACCENT,
+        showHeader: true,
         reminders: DEFAULT_REMINDERS,
         textScale: 1,
         theme: "system",

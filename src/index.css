@@ -5,6 +5,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* The title bar's height, which what sticks to the top sits under (none on a phone with it hidden) */
+  --header-h: 3.5rem;
   /* The accent's hue and how vivid it is (Settings sets them; 1 is full), its lightness fixed
      for each theme so text on it stays readable whatever the color */
   --accent-h: 278;
@@ -108,6 +110,16 @@
   @keyframes fade-up {
     from { transform: translateY(6px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
+  }
+}
+
+html.no-header {
+  --header-h: 0px;
+}
+/* Wider, the bar stays (it holds the tabs), without the title */
+@media (min-width: 48rem) {
+  html.no-header {
+    --header-h: 3.5rem;
   }
 }
 

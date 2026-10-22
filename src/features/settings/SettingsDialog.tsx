@@ -193,9 +193,14 @@ function BibleTab() {
 
 function AppearanceTab() {
   const theme = useApp((s) => s.settings.theme);
+  const header = useApp((s) => s.settings.showHeader);
   const update = useApp((s) => s.updateSettings);
+  const id = useId();
   return (
     <Section title="Appearance">
+      <Row title="Show the title bar" description="The bar at the top with “Scripture Retention”. Hidden, a phone has more room for the verse." htmlFor={id}>
+        <Switch id={id} checked={header} onCheckedChange={(showHeader) => update({ showHeader })} />
+      </Row>
       <Row title="Theme">
         <Segmented<Theme>
           size="sm"

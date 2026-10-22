@@ -66,6 +66,10 @@ export default function App() {
   const view = useUi((s) => s.view);
   const due = useDueCount(day);
   const count = useApp((s) => s.verses.length + s.queue.length);
+  const header = useApp((s) => s.settings.showHeader);
+  useEffect(() => {
+    document.documentElement.classList.toggle("no-header", !header);
+  }, [header]);
 
   // Queued verses whose day has come start (on opening the app, a new day, or a change to the queue)
   const queue = useApp((s) => s.queue);
@@ -86,9 +90,13 @@ export default function App() {
   return (
     <>
       <div className="flex min-h-dvh flex-col">
-        <header className="sticky top-0 z-40 border-b bg-background/85 pt-safe backdrop-blur-md">
+        {header ? null : (
+          // With no bar on a phone, the status bar still needs a backdrop for what scrolls under it
+          <div className="fixed inset-x-0 top-0 z-40 h-[env(safe-area-inset-top)] bg-background md:hidden" aria-hidden />
+        )}
+        <header className={cn("sticky top-0 z-40 border-b bg-background/85 pt-safe backdrop-blur-md", !header && "max-md:hidden")}>
           <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4 sm:px-8">
-            <Logo />
+            {header && <Logo />}
             <nav className="ml-auto hidden items-center gap-1 md:flex">
               <HeaderTab active={view === "review"} onClick={() => go("review")} badge={due}>
                 Review
@@ -104,7 +112,12 @@ export default function App() {
         </header>
 
         {/* Room at the bottom for the tab bar on a phone */}
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pt-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-8 sm:pt-6 md:pb-8">
+        <main
+          className={cn(
+            "mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pt-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-8 sm:pt-6 md:pb-8",
+            !header && "max-md:pt-[calc(1rem+env(safe-area-inset-top))]",
+          )}
+        >
           {view === "review" ? <ReviewView day={day} /> : <VersesView day={day} />}
         </main>
 

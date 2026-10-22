@@ -27,7 +27,7 @@ export function VersesView({ day }: { day: Day }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 flex items-center gap-2 bg-background/90 px-4 py-2 backdrop-blur-md sm:-mx-8 sm:px-8">
+      <div className="sticky top-[calc(var(--header-h)+env(safe-area-inset-top))] z-20 -mx-4 flex items-center gap-2 bg-background/90 px-4 py-2 backdrop-blur-md sm:-mx-8 sm:px-8">
         <div className="relative flex-1">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
