@@ -1,0 +1,29 @@
+name: Rust
+
+# The Rust engine, bindings, and terminal app: tested on every push that touches them or the
+# web app's engine (whose conformance cases the Rust tests run). Nothing here deploys.
+on:
+  push:
+    paths: ["rust/**", "src/core/**", "test/conformance.test.ts", ".github/workflows/rust.yml"]
+  pull_request:
+    paths: ["rust/**", "src/core/**", "test/conformance.test.ts", ".github/workflows/rust.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      # The cases are the web app's: they must be the ones its engine writes now
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci && npx vitest run test/conformance.test.ts
+        working-directory: .
