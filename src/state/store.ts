@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { create } from "zustand";
 import { persist, type PersistStorage, type StorageValue } from "zustand/middleware";
 import { BUILT_IN, DEFAULT_TRANSLATION } from "@/bible/translations";
-import type { Translation } from "@/bible/types";
+import type { Translation, TranslationEdit } from "@/bible/types";
 import { today, type Day } from "@/core/dates";
 import { DEFAULT_AUTO_START, dueFromQueue, type AutoStart, type Queued } from "@/core/queue";
 import { DEFAULT_REMINDERS, type Reminders } from "@/core/reminders";
@@ -84,6 +84,8 @@ interface State {
   updateSettings: (patch: Partial<Settings>) => void;
   /** Adds a translation (from fetch.bible's list, or uploaded) and reads from it */
   addTranslation: (t: Translation) => void;
+  /** Renames an added translation, or changes its books; its id (and so its saved books) stays */
+  updateTranslation: (id: string, patch: TranslationEdit) => void;
   removeTranslation: (id: string) => void;
   /** Adds a deck (following the default schedule); gives its id */
   addDeck: (name: string) => string;
@@ -240,6 +242,8 @@ export const useApp = create<State>()(
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       addTranslation: (t) =>
         set((s) => ({ settings: { ...s.settings, translations: [...s.settings.translations.filter((x) => x.id !== t.id), t], translationId: t.id } })),
+      updateTranslation: (id, patch) =>
+        set((s) => ({ settings: { ...s.settings, translations: s.settings.translations.map((t) => (t.id === id ? { ...t, ...patch } : t)) } })),
       removeTranslation: (id) =>
         set((s) => ({
           settings: {

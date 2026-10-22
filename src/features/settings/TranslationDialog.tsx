@@ -1,5 +1,5 @@
-import { CheckIcon, CloudDownloadIcon, ExternalLinkIcon, FileUpIcon, GlobeIcon, HardDriveIcon, Loader2Icon, LibraryIcon, SearchIcon, Trash2Icon, UploadIcon } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowLeftIcon, CheckIcon, CloudDownloadIcon, ExternalLinkIcon, FileUpIcon, GlobeIcon, HardDriveIcon, Loader2Icon, LibraryIcon, PencilIcon, SearchIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { downloadedBooks, importFiles, removeTranslationBooks } from "@/bible/library";
 import { BUILT_IN, fromCatalog, loadCatalog, type CatalogBible } from "@/bible/translations";
@@ -16,6 +16,14 @@ type Tab = "bibles" | "upload" | "browse";
 /** The Bible verses are shown in: the built-in ones, any of fetch.bible's, or one uploaded */
 export function TranslationDialog({ onDone }: { onDone: () => void }) {
   const [tab, setTab] = useState<Tab>("bibles");
+  /** The id of the added translation being renamed or added to */
+  const [editing, setEditing] = useState<string | null>(null);
+  if (editing)
+    return (
+      <DialogContent title="Bible translation" description="Rename it, or add books to it." className="sm:max-w-xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <Edit id={editing} onBack={() => setEditing(null)} />
+      </DialogContent>
+    );
   return (
     <DialogContent title="Bible translation" description="Pick the text verses are shown in, or bring your own." className="sm:max-w-xl" onOpenAutoFocus={(e) => e.preventDefault()}>
       <div className="sticky top-0 z-10 border-b bg-popover px-5 py-3">
@@ -30,7 +38,7 @@ export function TranslationDialog({ onDone }: { onDone: () => void }) {
           ]}
         />
       </div>
-      {tab === "bibles" && <Bibles onDone={onDone} />}
+      {tab === "bibles" && <Bibles onDone={onDone} onEdit={setEditing} />}
       {tab === "upload" && <Upload onDone={onDone} />}
       {tab === "browse" && <Browse onDone={onDone} />}
     </DialogContent>
@@ -46,7 +54,7 @@ function useDownloaded() {
   return [saved, () => setVersion((v) => v + 1)] as const;
 }
 
-function Bibles({ onDone }: { onDone: () => void }) {
+function Bibles({ onDone, onEdit }: { onDone: () => void; onEdit: (id: string) => void }) {
   const current = useApp((s) => s.settings.translationId);
   const added = useApp((s) => s.settings.translations);
   const update = useApp((s) => s.updateSettings);
@@ -88,6 +96,18 @@ function Bibles({ onDone }: { onDone: () => void }) {
             </span>
           </button>
           {selected && <CheckIcon className="size-4 shrink-0 text-primary" />}
+          {removable && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="size-10 shrink-0 opacity-60 group-hover:opacity-100 sm:size-8"
+              aria-label={`Edit ${t.abbreviation}`}
+              title={t.source.kind === "upload" ? "Rename, or add books" : "Rename"}
+              onClick={() => onEdit(t.id)}
+            >
+              <PencilIcon />
+            </Button>
+          )}
           {(removable || books > 0) && (
             <Button
               size="icon-sm"
@@ -135,55 +155,30 @@ function Bibles({ onDone }: { onDone: () => void }) {
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "bible";
 
-function Upload({ onDone }: { onDone: () => void }) {
-  const addTranslation = useApp((s) => s.addTranslation);
-  const added = useApp((s) => s.settings.translations);
-  const [files, setFiles] = useState<File[]>([]);
-  const [name, setName] = useState("");
-  const [abbreviation, setAbbreviation] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [read, setRead] = useState<{ done: number; total: number } | null>(null);
-  const [dragging, setDragging] = useState(false);
-
-  const autoAbbreviation = name
+/** "New American Standard Bible" is "NASB" */
+const abbreviate = (name: string) =>
+  name
     .split(/\s+/)
     .filter((w) => /^[A-Za-z0-9]/.test(w) && !/^(of|the|and)$/i.test(w))
     .map((w) => w[0]!.toUpperCase())
     .join("")
     .slice(0, 6);
 
+/** What was imported, and skipped, for a toast */
+const imported = (books: number[], skipped: string[], verb = "imported") =>
+  `${books.length} ${books.length === 1 ? "book" : "books"} ${verb}${skipped.length ? `; skipped ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}` : ""}.`;
+
+const NO_BOOKS = { description: "Upload USFM (.usfm, .sfm), USX (.usx), or OSIS files, or a .zip of them." };
+
+/** Where Bible files are dropped or chosen, and the ones chosen so far */
+function FileDrop({ files, setFiles, hint }: { files: File[]; setFiles: Dispatch<SetStateAction<File[]>>; hint: string }) {
+  const [dragging, setDragging] = useState(false);
   const addFiles = (list: FileList | null) => {
     if (!list) return;
     setFiles((f) => [...f, ...Array.from(list)]);
   };
-
-  const submit = async () => {
-    if (!files.length || !name.trim()) return;
-    setBusy(true);
-    setRead(null);
-    const abbr = (abbreviation.trim() || autoAbbreviation || "MINE").toUpperCase();
-    let id = `upload:${slug(name)}`;
-    for (let n = 2; added.some((t) => t.id === id) || BUILT_IN.some((t) => t.id === id); n++) id = `upload:${slug(name)}-${n}`;
-    try {
-      const { books, skipped } = await importFiles(id, files, (done, total) => setRead({ done, total }));
-      if (books.length === 0) {
-        toast.error("No books found", { description: "Upload USFM (.usfm, .sfm), USX (.usx), or OSIS files, or a .zip of them." });
-        return;
-      }
-      addTranslation({ id, name: name.trim(), abbreviation: abbr, source: { kind: "upload" }, books });
-      toast.success(`Added ${abbr}`, {
-        description: `${books.length} ${books.length === 1 ? "book" : "books"} imported${skipped.length ? `; skipped ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}` : ""}.`,
-      });
-      onDone();
-    } catch (error) {
-      toast.error("Couldn't read those files", { description: error instanceof Error ? error.message : String(error) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
-    <form className="space-y-4 px-5 py-4" onSubmit={(e) => (e.preventDefault(), submit())}>
+    <>
       <label
         className={cn(
           "flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
@@ -199,7 +194,7 @@ function Upload({ onDone }: { onDone: () => void }) {
       >
         <FileUpIcon className="size-7 text-muted-foreground" />
         <span className="text-sm font-medium">Choose files, or drop them here</span>
-        <span className="text-xs text-muted-foreground">A .zip of a whole Bible in USFM or USX (like eBible.org's downloads), or single book files</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
         <input type="file" multiple accept=".usfm,.sfm,.usx,.xml,.zip,.txt,.SFM,.USFM,.USX" className="sr-only" onChange={(e) => addFiles(e.target.files)} />
       </label>
       {files.length > 0 && (
@@ -215,6 +210,49 @@ function Upload({ onDone }: { onDone: () => void }) {
           </button>
         </div>
       )}
+    </>
+  );
+}
+
+/** "Reading 3 of 66 files…" while files are read */
+const reading = (read: { done: number; total: number } | null) => (read && read.total > 1 ? `Reading ${read.done} of ${read.total} files…` : "Reading…");
+
+function Upload({ onDone }: { onDone: () => void }) {
+  const addTranslation = useApp((s) => s.addTranslation);
+  const added = useApp((s) => s.settings.translations);
+  const [files, setFiles] = useState<File[]>([]);
+  const [name, setName] = useState("");
+  const [abbreviation, setAbbreviation] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [read, setRead] = useState<{ done: number; total: number } | null>(null);
+  const autoAbbreviation = abbreviate(name);
+
+  const submit = async () => {
+    if (!files.length || !name.trim()) return;
+    setBusy(true);
+    setRead(null);
+    const abbr = (abbreviation.trim() || autoAbbreviation || "MINE").toUpperCase();
+    let id = `upload:${slug(name)}`;
+    for (let n = 2; added.some((t) => t.id === id) || BUILT_IN.some((t) => t.id === id); n++) id = `upload:${slug(name)}-${n}`;
+    try {
+      const { books, skipped } = await importFiles(id, files, (done, total) => setRead({ done, total }));
+      if (books.length === 0) {
+        toast.error("No books found", NO_BOOKS);
+        return;
+      }
+      addTranslation({ id, name: name.trim(), abbreviation: abbr, source: { kind: "upload" }, books });
+      toast.success(`Added ${abbr}`, { description: imported(books, skipped) });
+      onDone();
+    } catch (error) {
+      toast.error("Couldn't read those files", { description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="space-y-4 px-5 py-4" onSubmit={(e) => (e.preventDefault(), submit())}>
+      <FileDrop files={files} setFiles={setFiles} hint="A .zip of a whole Bible in USFM or USX (like eBible.org's downloads), or single book files" />
       <div className="grid grid-cols-[1fr_7rem] gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="upload-name">Name</Label>
@@ -234,7 +272,87 @@ function Upload({ onDone }: { onDone: () => void }) {
       </p>
       <div className="flex justify-end">
         <Button type="submit" className="max-sm:h-12 max-sm:w-full max-sm:text-base" disabled={busy || !files.length || !name.trim()}>
-          {busy ? <Loader2Icon className="animate-spin" /> : <UploadIcon />} {busy ? (read && read.total > 1 ? `Reading ${read.done} of ${read.total} files…` : "Reading…") : "Add translation"}
+          {busy ? <Loader2Icon className="animate-spin" /> : <UploadIcon />} {busy ? reading(read) : "Add translation"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Renames an added translation, and adds books to (or replaces books of) an uploaded one */
+function Edit({ id, onBack }: { id: string; onBack: () => void }) {
+  const t = useApp((s) => s.settings.translations.find((x) => x.id === id));
+  const updateTranslation = useApp((s) => s.updateTranslation);
+  const [name, setName] = useState(t?.name ?? "");
+  const [abbreviation, setAbbreviation] = useState(t?.abbreviation ?? "");
+  const [attribution, setAttribution] = useState(t?.attribution ?? "");
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [read, setRead] = useState<{ done: number; total: number } | null>(null);
+  if (!t) return null;
+  const upload = t.source.kind === "upload";
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    setRead(null);
+    const abbr = (abbreviation.trim() || abbreviate(name) || t.abbreviation).toUpperCase();
+    try {
+      let books = t.books;
+      let description: string | undefined;
+      if (files.length) {
+        // Saved under the same id, so a book uploaded again replaces the one there
+        const added = await importFiles(t.id, files, (done, total) => setRead({ done, total }));
+        if (added.books.length === 0) {
+          toast.error("No books found", NO_BOOKS);
+          return;
+        }
+        books = [...new Set([...(t.books ?? []), ...added.books])].sort((a, b) => a - b);
+        description = imported(added.books, added.skipped, "added or replaced");
+      }
+      updateTranslation(t.id, { name: name.trim(), abbreviation: abbr, ...(upload && { attribution: attribution.trim() || undefined, books }) });
+      toast.success(`Saved ${abbr}`, { description });
+      onBack();
+    } catch (error) {
+      toast.error("Couldn't read those files", { description: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="space-y-4 px-5 py-4" onSubmit={(e) => (e.preventDefault(), submit())}>
+      <button type="button" className="-ml-1 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" onClick={onBack}>
+        <ArrowLeftIcon className="size-4" /> Bibles
+      </button>
+      <div className="grid grid-cols-[1fr_7rem] gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-name">Name</Label>
+          <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-abbr">Abbreviation</Label>
+          <Input id="edit-abbr" value={abbreviation} onChange={(e) => setAbbreviation(e.target.value.toUpperCase().slice(0, 8))} placeholder={abbreviate(name) || t.abbreviation} />
+        </div>
+      </div>
+      {upload && (
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-attribution">Copyright</Label>
+            <Input id="edit-attribution" value={attribution} onChange={(e) => setAttribution(e.target.value)} placeholder="Who publishes it, and its license" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Add books</Label>
+            <p className="text-xs text-muted-foreground">
+              It has {t.books?.length ?? 0} {t.books?.length === 1 ? "book" : "books"}. A book uploaded again replaces the one it has.
+            </p>
+          </div>
+          <FileDrop files={files} setFiles={setFiles} hint="Book files, or a .zip of them, in USFM, USX, or OSIS" />
+        </>
+      )}
+      <div className="flex justify-end">
+        <Button type="submit" className="max-sm:h-12 max-sm:w-full max-sm:text-base" disabled={busy || !name.trim()}>
+          {busy ? <Loader2Icon className="animate-spin" /> : <CheckIcon />} {busy ? reading(read) : "Save"}
         </Button>
       </div>
     </form>

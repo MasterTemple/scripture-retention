@@ -43,3 +43,6 @@ export interface Translation {
   /** For uploads, the books that were imported */
   books?: number[];
 }
+
+/** What can be changed of a translation once it's added */
+export type TranslationEdit = Partial<Pick<Translation, "name" | "abbreviation" | "attribution" | "books">>;

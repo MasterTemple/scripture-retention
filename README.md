@@ -159,7 +159,7 @@ The verse's text shows in the translation chosen in Settings:
 
 - **Built in:** BSB, KJV, WEB, ASV, LSV, and YLT, from [fetch.bible](https://fetch.bible).
 - **Browse more:** any of fetch.bible's ~1,400 translations.
-- **Upload your own:** a `.zip` of a whole Bible in USFM or USX (for example eBible.org's `*_usfm.zip`), an OSIS file, or single `.usfm`, `.sfm`, or `.usx` book files. Files are read on your device and never uploaded anywhere.
+- **Upload your own:** a `.zip` of a whole Bible in USFM or USX (for example eBible.org's `*_usfm.zip`), an OSIS file, or single `.usfm`, `.sfm`, or `.usx` book files. Files are read on your device and never uploaded anywhere. The pencil beside a translation you added renames it (name and abbreviation), and for an upload sets its copyright and adds books to it; a book uploaded again replaces the one it had.
 
 Each book downloads the first time it's needed and stays on the device, so reviewing works offline.
 
