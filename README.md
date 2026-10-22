@@ -1,69 +1,77 @@
 # Scripture Retention
 
-Keep the Scripture you've already memorized, after the *Scripture Memorization and Meditation System*
-Tom Frost uses at the [Foundation for Reasonable Christianity](https://www.reasonablechristianity.org/).
-Each verse is said aloud (its topic, its reference, then the verse):
+Keep the Scripture you've already memorized: review each verse daily, then weekly, then monthly.
 
-1. once a day, every day, for 7 weeks;
-2. once a week, every week, for 7 months;
-3. once a month, every month, for 7 years.
+**[Open the app → mastertemple.github.io/scripture-retention](https://mastertemple.github.io/scripture-retention/)**
 
-Note: this is not performed in order to memorize a verse, but to retain a verse
-you have already memorized, and to foster meditation on it.
+<p align="center">
+  <a href="docs/review-card.png"><img src="docs/review-card.png" width="23%" alt="A review card: the topic and reference, before the verse shows" /></a>
+  <a href="docs/review-verse.png"><img src="docs/review-verse.png" width="23%" alt="The same card with the verse shown, and Move and Next" /></a>
+  <a href="docs/done.png"><img src="docs/done.png" width="23%" alt="Done for today: verses reviewed, and how many are daily, weekly, and monthly" /></a>
+  <a href="docs/verses.png"><img src="docs/verses.png" width="23%" alt="The verse list, grouped by phase" /></a>
+</p>
+<p align="center"><sub>Say it aloud · Check the verse · Done for today · Your verses</sub></p>
 
-It is designed that you would add 1 verse each week. Doing it at this rate will
-result in reciting 23 verses each day, but that is after you have completely
-filled the moving window of daily, weekly, and monthly verses (which takes 7
-years to build up to). At that point, it will be a very manageable 5-10 minute
-activity each day.
+## The method
 
-You are free to add as many verses as you would like per week, however it is
-encouraged that you prioritize maintaining and reviewing previous verses,
-rather than memorizing more and more, lest in you forget what you have worked
-towards.
+It follows the *Scripture Memorization and Meditation System* Tom Frost uses at the [Foundation for Reasonable Christianity](https://www.reasonablechristianity.org/). Each verse is said aloud (its topic, its reference, then the verse):
 
-**Use it: [mastertemple.github.io/scripture-retention](https://mastertemple.github.io/scripture-retention/)**
+| Phase | How often | For how long |
+| --- | --- | --- |
+| Daily | Every day | 7 weeks |
+| Weekly | Every week | 7 months |
+| Monthly | Every month | 7 years |
+
+> [!NOTE]
+> This is not performed in order to memorize a verse, but to retain a verse you have already memorized, and to foster meditation on it.
+
+It is designed that you would add 1 verse each week. Doing it at this rate will result in reciting 23 verses each day, but that is after you have completely filled the moving window of daily, weekly, and monthly verses (which takes 7 years to build up to). At that point, it will be a very manageable 5-10 minute activity each day.
+
+You are free to add as many verses as you would like per week, however it is encouraged that you prioritize maintaining and reviewing previous verses, rather than memorizing more and more, lest you forget what you have worked towards.
+
+## Install it
+
+It's a web app that installs like any other and works offline.
+
+- **iPhone or iPad:** open [the site](https://mastertemple.github.io/scripture-retention/) in Safari, tap **Share**, then **Add to Home Screen**.
+- **Android, or Chrome and Edge on a computer:** choose **Install app** in the browser's menu.
 
 ## Reviewing
 
-**Review** shows one card at a time: the topic (`#guard-your-heart`) and the reference. Say them and the
-verse, then tap the card (or swipe it, or **Continue**) to see the verse, and **Next** to go on; swipe
-right to go back. The topic and reference stay where they are when the verse shows (turn off *Keep the
-card steady* to show them large and centered until then). **Move** puts the verse in another bucket and how far into it ("week 3 of the weekly
-reviews"), working out the start date that puts it there today; a moved verse counts as reviewed. On a
-computer, Space or Enter does Continue and Next, ← goes back, and M moves.
+**Review** shows one card at a time: the topic (`#guard-your-heart`) and the reference.
 
-A verse is due on its scheduled day (every day, then every 7 days, then the same day each month) and
-stays due until it's reviewed, so a missed weekly or monthly verse comes up the next day.
+1. Say the topic, the reference, and the verse.
+2. Tap the card (or swipe it, or tap **Continue**) to see the verse.
+3. Tap **Next** to go on, or swipe right to go back.
 
-## Bibles
+**Move** puts a verse in another phase, and how far into it ("week 3 of the weekly reviews"); a moved verse counts as reviewed.
 
-The verse's text shows in the translation chosen in Settings:
+A verse is due on its scheduled day (every day, then every 7 days, then the same day each month) and stays due until it's reviewed, so a missed weekly or monthly verse comes up the next day.
 
-- **Built in**: BSB, KJV, WEB, ASV, LSV, and YLT, from [fetch.bible](https://fetch.bible).
-- **Browse more**: any of fetch.bible's ~1,400 translations.
-- **Upload your own**: a `.zip` of a whole Bible in USFM or USX (for example eBible.org's `*_usfm.zip`),
-  an OSIS file of one book or a whole Bible, or individual `.usfm`/`.sfm`/`.usx` book files. Files are
-  read on your device and never uploaded anywhere.
+On a computer:
 
-Each downloaded book is fetched the first time it's needed and kept on the device (the books of every
-card due are fetched as the review starts), so reviewing works offline.
+| Key | Does |
+| --- | --- |
+| Space, Enter, or → | Continue, then Next |
+| ← | Back |
+| M | Move |
 
-## Verses
+## Your verses
 
-**Verses** lists every verse by where it is (daily, weekly, monthly, upcoming, retained); tap one to change
-its topic, reference, or place in the schedule, or to delete it. Where a verse is follows from one date
-alone: the day its daily reviews began.
+**Verses** lists every verse by where it is: daily, weekly, monthly, queued, upcoming, or retained. Tap one to change its topic, reference, or place in the schedule, or to delete it. Where a verse is follows from one date alone: the day its daily reviews began.
 
-## The queue
+As you type a reference, the app suggests completions and shows a verse's text, so you can see it's the one you meant.
 
-Queue verses to start later, so they don't need entering on the day: **Add a verse**, then *Queue it*
-(or **+ Queue a verse** in the list). One starts each week on the day chosen in Settings (Monday unless
-changed), in a week no verse has started yet; reorder them with the arrows, or turn it to *By hand* and
-start each from its dialog. A day the app wasn't opened on still starts its verse, dated that day. A
-verse can also be given a start date ahead, which puts it under *Upcoming*.
+### The queue
 
-## Importing and exporting
+Queue verses to start later, so they don't need entering on the day: **Add a verse**, then *Queue it* (or **+ Queue a verse** in the list).
+
+- One starts each week, on the day chosen in Settings (Monday unless changed), in a week no verse has started yet.
+- Reorder them with the arrows, or switch to *By hand* and start each one yourself.
+- A day the app wasn't opened on still starts its verse, dated that day.
+- A verse can also be given a start date ahead, which puts it under *Upcoming*.
+
+### Importing and exporting
 
 **Import** adds a whole list at once, one verse a line:
 
@@ -84,65 +92,64 @@ Queue:
 `#renewed` Romans 12:1-2
 ```
 
-A heading (`Daily:`, `Weekly:`, `Monthly:`, or `## Daily` and so on) puts the verses below it in that bucket, at its first
-review today; `@day 12`, `@week 3`, `@month 5` place one further in, and `@2026-01-04` gives its start
-date outright; verses under `Queue:` are queued. The topic and backticks are optional; `#?` is a verse without a topic yet. **Copy all as
-a list** (or Share, or Save as a file) exports them in the same form, with start dates, so it imports
-back the same.
+- A heading (`Daily:`, `Weekly:`, `Monthly:`, or `## Daily` and so on) puts the verses below it in that phase, at its first review today.
+- `@day 12`, `@week 3`, or `@month 5` places a verse further in; `@2026-01-04` gives the day its daily reviews began.
+- Verses under `Queue:` are queued.
+- The topic and backticks are optional; `#?` is a verse without a topic yet.
 
-Your verses are kept in this browser only (localStorage), so save a copy now and then.
+**Copy all as a list** (or **Share**, or **Save as a file**) exports every verse in the same form, with start dates, so it imports back the same.
 
-## Install it
+> [!IMPORTANT]
+> Your verses are kept in this browser only, so save a copy now and then.
 
-It's an installable web app (a PWA) that works offline. On an iPhone or iPad, open
-[the site](https://mastertemple.github.io/scripture-retention/) in Safari, tap Share, then **Add to
-Home Screen**; on Android or desktop Chrome and Edge, use **Install app** in the browser's menu.
+## Bibles
+
+The verse's text shows in the translation chosen in Settings:
+
+- **Built in:** BSB, KJV, WEB, ASV, LSV, and YLT, from [fetch.bible](https://fetch.bible).
+- **Browse more:** any of fetch.bible's ~1,400 translations.
+- **Upload your own:** a `.zip` of a whole Bible in USFM or USX (for example eBible.org's `*_usfm.zip`), an OSIS file, or single `.usfm`, `.sfm`, or `.usx` book files. Files are read on your device and never uploaded anywhere.
+
+Each book downloads the first time it's needed and stays on the device, so reviewing works offline.
 
 ## Reminders
 
-Settings → *Reminders* has two, each with its time:
+Settings → **Reminders** has two, each at a time you choose:
 
-- **Review each day**, on days with verses due (7:00 AM unless changed);
-- **Add a new verse**, one day a week (Monday unless changed), when nothing is queued or dated ahead
-  to start next.
+- **Review each day**, on days with verses due.
+- **Add a new verse**, one day a week, when nothing is queued or dated ahead to start next.
 
-The site has no server, so it can't push a notification at an exact time the way a native app can.
-What it can do:
+The site has no server, so it can't push a notification at an exact time the way a native app can. How reminders arrive depends on the device:
 
-- **Installed in Chrome or Edge** (Android, desktop): the browser wakes the app now and then (periodic
-  background sync), and it shows any reminder whose time has passed. It may come somewhat after the time set.
-- **Open in the background** (any browser that shows notifications): it reminds you at the time.
-- **iPhone and iPad**: notifications need the app on the Home Screen, and Safari doesn't wake a closed app.
-- **Add to my calendar** saves the reminders as repeating calendar events (an `.ics` file) that open the
-  app. A phone's calendar alerts at the exact time with the app closed, on every phone, so it's the sure way.
-- `scriptable/scripture-review.js` is a [Scriptable](https://scriptable.app) script for an iPhone that
-  schedules a daily notification opening the review.
+| Where | How |
+| --- | --- |
+| Installed in Chrome or Edge (Android, computer) | The browser wakes the app now and then, and it shows any reminder whose time has passed, sometimes a little late |
+| Open in the background | On time, in any browser that shows notifications |
+| iPhone and iPad | Only with the app on the Home Screen, and Safari doesn't wake a closed app |
+| **Add to my calendar** | Repeating calendar events that open the app, on time on every phone: the sure way |
 
-## Links
-
-- [mastertemple.github.io/scripture-retention](https://mastertemple.github.io/scripture-retention/) opens today's review
-- [mastertemple.github.io/scripture-retention/?view=verses](https://mastertemple.github.io/scripture-retention/?view=verses) opens the list
-- [mastertemple.github.io/scripture-retention/?view=import](https://mastertemple.github.io/scripture-retention/?view=import) opens the import dialog
-
-Settings has each link ready to copy, for a bookmark or a shortcut.
+`scriptable/scripture-review.js` is a [Scriptable](https://scriptable.app) script for an iPhone that schedules a daily notification opening the review.
 
 ## Settings
 
-Order (daily, weekly, monthly; or shuffled), keeping the card steady, showing the prompt to say the
-verse aloud, the hour a new day begins, reminders, the day queued verses start, the translation, the
-text size, the title bar, the theme and accent color (one of ten, or any color you pick: its hue is used at a
-lightness that stays readable in both themes), and how long each phase lasts (7 weeks, 7 months, 7
-years). *Check for updates* gets a new version of the app now, and *Review today again* makes the
-verses reviewed today due again.
+| Tab | What's in it |
+| --- | --- |
+| Review | Order (by phase or shuffled), keep the card steady, show the prompt, text size, the hour a new day begins, review today again |
+| Schedule | How long each phase lasts, and the day queued verses start |
+| Reminders | Review each day, add a new verse, add to my calendar |
+| Bible | The translation: built in, from fetch.bible, or uploaded |
+| Appearance | The title bar, the theme, and the accent color (one of ten, or any color, kept readable in both themes) |
+| Data | Import, copy, share, or save your verses; check for updates; links |
 
-## How it's built
+### Links
 
-- React 19, TypeScript, Vite, Tailwind CSS v4, and Radix primitives (shadcn-style components in `src/components/ui`)
-- `src/core/` (dates, the schedule, lists, the queue, reminders) has no browser imports, so the service worker uses it too
-- [topos-bible](https://www.npmjs.com/package/topos-bible) reads references and completes them as they're typed (`src/bible/topos.ts`)
-- [logoxide](https://www.npmjs.com/package/logoxide) reads USFM, USX, OSIS, and zips into per-verse text in a Web Worker, so its WebAssembly only loads when a book is first needed (`src/bible/parse.ts`, `src/bible/worker.ts`)
-- zustand for state (verses and settings persist in localStorage)
-- [vite-plugin-pwa](https://vite-pwa-org.netlify.app) builds the service worker (`src/sw.ts`), which caches the app for offline use and shows reminders from a copy of the state in IndexedDB (`src/lib/reminders.ts`); a new version waits for you to reload
+For a bookmark or a home-screen shortcut (Settings → Data has each ready to copy):
+
+- [Today's review](https://mastertemple.github.io/scripture-retention/)
+- [Your verses](https://mastertemple.github.io/scripture-retention/?view=verses): `?view=verses`
+- [Import](https://mastertemple.github.io/scripture-retention/?view=import): `?view=import`
+
+## Development
 
 ```bash
 npm install
@@ -151,7 +158,11 @@ npm test           # unit tests (the schedule, lists, queue, reminders, parsing,
 npm run build      # static site in dist/
 ```
 
-The build is a static site with no server or API keys, and its URLs are relative, so it can be hosted
-under any path. Each push to `main` tests, builds, and deploys it to GitHub Pages at
-[mastertemple.github.io/scripture-retention](https://mastertemple.github.io/scripture-retention/)
-(`.github/workflows/deploy.yml`; turn on Pages with *GitHub Actions* as its source in the repository's settings).
+- React 19, TypeScript, Vite, Tailwind CSS v4, and Radix primitives (shadcn-style components in `src/components/ui`)
+- `src/core/` (dates, the schedule, lists, the queue, reminders) has no browser imports, so the service worker uses it too
+- [topos-bible](https://www.npmjs.com/package/topos-bible) reads references and completes them as they're typed (`src/bible/topos.ts`)
+- [logoxide](https://www.npmjs.com/package/logoxide) reads USFM, USX, OSIS, and zips into per-verse text in a Web Worker, so its WebAssembly only loads when a book is first needed (`src/bible/parse.ts`, `src/bible/worker.ts`)
+- zustand for state (verses and settings persist in localStorage)
+- [vite-plugin-pwa](https://vite-pwa-org.netlify.app) builds the service worker (`src/sw.ts`), which caches the app for offline use and shows reminders from a copy of the state in IndexedDB (`src/lib/reminders.ts`)
+
+The build is a static site with no server or API keys, and its URLs are relative, so it can be hosted under any path. Each push to `main` tests, builds, and deploys it to [GitHub Pages](https://mastertemple.github.io/scripture-retention/) (`.github/workflows/deploy.yml`, with Pages set to deploy from *GitHub Actions* in the repository's settings).
