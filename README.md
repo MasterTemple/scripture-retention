@@ -24,8 +24,6 @@ towards.
 
 **Use it: [mastertemple.github.io/scripture-retention](https://mastertemple.github.io/scripture-retention/)**
 
-The web version of the Scripture Retention Obsidian plugin, made for phones first.
-
 ## Reviewing
 
 **Review** shows one card at a time: the topic (`#guard-your-heart`) and the reference. Say them and the
@@ -90,7 +88,7 @@ A heading (`Daily:`, `Weekly:`, `Monthly:`, or `## Daily` and so on) puts the ve
 review today; `@day 12`, `@week 3`, `@month 5` place one further in, and `@2026-01-04` gives its start
 date outright; verses under `Queue:` are queued. The topic and backticks are optional; `#?` is a verse without a topic yet. **Copy all as
 a list** (or Share, or Save as a file) exports them in the same form, with start dates, so it imports
-back the same. The Obsidian plugin reads the same list, except that it has no queue.
+back the same.
 
 Your verses are kept in this browser only (localStorage), so save a copy now and then.
 
@@ -140,7 +138,7 @@ verses reviewed today due again.
 ## How it's built
 
 - React 19, TypeScript, Vite, Tailwind CSS v4, and Radix primitives (shadcn-style components in `src/components/ui`)
-- `src/core/` (dates, the schedule, lists) is the Obsidian plugin's, with the queue and reminders added; it has no browser imports, so the service worker uses it too
+- `src/core/` (dates, the schedule, lists, the queue, reminders) has no browser imports, so the service worker uses it too
 - [topos-bible](https://www.npmjs.com/package/topos-bible) reads references and completes them as they're typed (`src/bible/topos.ts`)
 - [logoxide](https://www.npmjs.com/package/logoxide) reads USFM, USX, OSIS, and zips into per-verse text in a Web Worker, so its WebAssembly only loads when a book is first needed (`src/bible/parse.ts`, `src/bible/worker.ts`)
 - zustand for state (verses and settings persist in localStorage)

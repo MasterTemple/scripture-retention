@@ -20,8 +20,8 @@ interface Ui {
 }
 
 /**
- * What's showing: the view comes from the address (`?view=verses`, `?view=import`), as the
- * plugin's `obsidian://` links did, so a bookmark or a notification can open either
+ * What's showing: the view comes from the address (`?view=verses`, `?view=import`), so a
+ * bookmark or a notification can open either
  */
 function fromAddress(): Ui {
   const view = new URLSearchParams(location.search).get("view");

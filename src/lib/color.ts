@@ -26,7 +26,7 @@ const PHASE_HUES = [155, 57];
 
 /**
  * Sets the accent on the page (the stylesheet's colors follow `--accent-h` and `--accent-c`).
- * The daily phase is shown in the accent, as in the plugin, unless it's close to the weekly or
+ * The daily phase is shown in the accent, unless it's close to the weekly or
  * monthly phase's color, when it stays indigo so the three can be told apart.
  */
 export function applyAccent(accent: Accent) {
