@@ -1,0 +1,19 @@
+[package]
+name = "scripture-srs"
+description = "Spaced repetition for memorized Scripture: a fixed daily-weekly-monthly schedule, FSRS (4.5, 5, 6), Anki's SM-2, SuperMemo SM-2, Leitner, Pimsleur, and Ebisu, over one review log"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+# The tests read the web app's JSON
+scripture-srs = { path = ".", features = ["serde"] }
+
+[features]
+# Reading and writing verses, logs, and options as the web app saves them
+serde = ["dep:serde"]
