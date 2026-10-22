@@ -1,5 +1,25 @@
 [package]
 name = "scripture-tui"
+description = "Review memorized Scripture in the terminal, by any spaced-repetition algorithm, with the same data as the Scripture Retention web app"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 publish = false
+
+[[bin]]
+name = "scripture-tui"
+path = "src/main.rs"
+
+[dependencies]
+scripture-srs = { path = "../scripture-srs", features = ["serde"] }
+ratatui = "0.30.2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+# Reading references (topos) and Bible text (logoxide), as the web app does
+topos-bible = "0.6.1"
+logoxide-markup = { version = "0.1.1", default-features = false }
+logoxide-text = "0.1.1"
+# Downloading books from fetch.bible
+ureq = "=3.4.2"

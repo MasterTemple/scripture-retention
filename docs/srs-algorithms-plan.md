@@ -135,4 +135,7 @@ dependency only); fold/placement/switching; Anki steps and fuzz bounds; session 
 - [x] 11. JSON backup and restore
 - [x] 12. README, typecheck, test, build, browser check (headless Chromium: FSRS and Anki reviews,
       learning-step requeue, going back and regrading, settings, verses, edit dialog; fixed unchanged)
-- [ ] 13. Rust library, BoltFFI bindings, Ratatui TUI
+- [x] 13. Rust library (rust/crates/scripture-srs; 2,520 conformance cases from the web app pass),
+      BoltFFI bindings (the cases pass through WebAssembly in Node and the Python wheel; README
+      examples run and checked), Ratatui TUI (reads/writes the app's backup; tested, and run in
+      tmux against fetch.bible)

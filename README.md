@@ -192,4 +192,12 @@ npm run build      # static site in dist/
 - zustand for state (verses and settings persist in localStorage)
 - [vite-plugin-pwa](https://vite-pwa-org.netlify.app) builds the service worker (`src/sw.ts`), which caches the app for offline use and shows reminders from a copy of the state in IndexedDB (`src/lib/reminders.ts`)
 
+### Rust
+
+[`rust/`](rust) has the same scheduling engine as a Rust library (checked against this app's case by case), bindings for TypeScript and Python made with BoltFFI, and a terminal app (Ratatui) that reviews from the same backup file:
+
+```bash
+cd rust && cargo run --release -p scripture-tui -- --file scripture-retention-backup.json
+```
+
 The build is a static site with no server or API keys, and its URLs are relative, so it can be hosted under any path. Each push to `main` tests, builds, and deploys it to [GitHub Pages](https://mastertemple.github.io/scripture-retention/) (`.github/workflows/deploy.yml`, with Pages set to deploy from *GitHub Actions* in the repository's settings).
