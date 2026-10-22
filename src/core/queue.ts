@@ -9,6 +9,8 @@ export interface Queued {
   id: string;
   tag: string;
   ref: string;
+  /** The deck it starts in (the default deck when absent) */
+  deck?: string;
 }
 
 export interface AutoStart {

@@ -4,8 +4,8 @@ import { reviewDay, useApp } from "@/state/store";
 
 /** Every verse as a list that imports back the same (each with its start date) */
 export function listText(): string {
-  const { verses, queue, settings } = useApp.getState();
-  return formatList(verses, reviewDay(), settings.durations, queue);
+  const { verses, queue, settings, decks, passages } = useApp.getState();
+  return formatList(verses, reviewDay(), settings.durations, queue, decks, passages);
 }
 
 export async function copyList() {

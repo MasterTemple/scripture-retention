@@ -61,13 +61,13 @@ export function startReminders() {
   const copy = () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
-      const { verses, queue, queueChecked, settings } = useApp.getState();
-      writeState({ verses, queue, queueChecked, settings }).catch(() => {});
+      const { verses, queue, queueChecked, settings, decks } = useApp.getState();
+      writeState({ verses, queue, queueChecked, settings, decks }).catch(() => {});
     }, 500);
   };
   copy();
   useApp.subscribe((state, previous) => {
-    if (state.verses !== previous.verses || state.queue !== previous.queue || state.settings !== previous.settings) copy();
+    if (state.verses !== previous.verses || state.queue !== previous.queue || state.settings !== previous.settings || state.decks !== previous.decks) copy();
     if (state.settings.reminders !== previous.settings.reminders) void syncWake();
   });
   void syncWake();

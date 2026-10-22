@@ -5,11 +5,15 @@ export type View = "review" | "verses";
 export type SettingsTab = "review" | "schedule" | "reminders" | "bible" | "appearance" | "data";
 
 export type Panel =
-  | { kind: "edit"; verseId: string | null; queue?: boolean }
+  | { kind: "edit"; verseId: string | null; queue?: boolean; deck?: string }
   | { kind: "move"; verseId: string }
   | { kind: "import" }
   | { kind: "settings" }
-  | { kind: "translations" };
+  | { kind: "translations" }
+  /** Adding a passage (`passageId` null), in `deck`, or seeing one */
+  | { kind: "passage"; passageId: string | null; deck?: string }
+  /** Adding a deck (`deckId` null), or renaming or deleting one */
+  | { kind: "deck"; deckId: string | null };
 
 interface Ui {
   view: View;
@@ -17,6 +21,8 @@ interface Ui {
   panels: Panel[];
   /** The settings tab open last, opened again with them */
   settingsTab: SettingsTab;
+  /** The deck the Verses view shows (all of them when null) */
+  versesDeck: string | null;
 }
 
 /**
@@ -25,7 +31,7 @@ interface Ui {
  */
 function fromAddress(): Ui {
   const view = new URLSearchParams(location.search).get("view");
-  return { view: view === "verses" || view === "import" ? "verses" : "review", panels: view === "import" ? [{ kind: "import" }] : [], settingsTab: "review" };
+  return { view: view === "verses" || view === "import" ? "verses" : "review", panels: view === "import" ? [{ kind: "import" }] : [], settingsTab: "review", versesDeck: null };
 }
 
 export const useUi = create<Ui>()(() => fromAddress());

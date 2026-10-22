@@ -1,5 +1,5 @@
 import { ArchiveIcon, ArchiveRestoreIcon, BellIcon, ExternalLinkIcon, BookMarkedIcon, BookOpenCheckIcon, CalendarDaysIcon, CalendarPlusIcon, DatabaseIcon, PaletteIcon, CheckIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon, RotateCcwIcon, CopyIcon, DownloadIcon, ListPlusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useContext, useId, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
@@ -17,7 +17,7 @@ import { checkForUpdate } from "@/lib/pwa";
 import { resetDay } from "@/state/review";
 import { reviewDay, useApp, useTranslation, type Theme } from "@/state/store";
 import { openPanel, useUi, viewUrl, type SettingsTab } from "@/state/ui";
-import { AlgorithmOptions, AlgorithmSection } from "./AlgorithmSettings";
+import { AlgorithmOptions, AlgorithmSection, ScheduleTarget, updateSchedule, useTargetSchedule } from "./AlgorithmSettings";
 import { Row, Section, Stepper } from "./rows";
 
 const TABS: { value: SettingsTab; label: string; icon: typeof BellIcon }[] = [
@@ -133,25 +133,48 @@ function ReviewTab() {
 
 function ScheduleTab() {
   const autoStart = useApp((s) => s.settings.autoStart);
-  const algorithm = useApp((s) => s.settings.algorithm);
   const update = useApp((s) => s.updateSettings);
+  const decks = useApp((s) => s.decks);
   const id = useId();
+  const deckId = useId();
+  const ownId = useId();
+  // The deck whose schedule is shown (null: the default schedule)
+  const [deck, setDeck] = useState<string | null>(null);
+  const shown = decks.find((d) => d.id === deck);
+  const own = !!shown?.schedule;
+  const toggleOwn = (on: boolean) => {
+    if (!shown) return;
+    const { algorithm, srs, durations } = useApp.getState().settings;
+    // Its own starts as a copy of the default schedule
+    useApp.getState().updateDeck(shown.id, { schedule: on ? { algorithm, srs, durations } : undefined });
+  };
   return (
     <>
-      <AlgorithmSection />
-      <AlgorithmOptions />
-      <Section
-        title="Phases"
-        description={
-          algorithm === "fixed"
-            ? "Changing these moves every verse, since where a verse is follows from its start date."
-            : "The fixed schedule's, used to place a verse you add partway in (at a week of its weekly reviews, say) before it has reviews of its own."
-        }
-      >
-        <DurationRow setting="dailyWeeks" title="Daily for" unit="weeks" />
-        <DurationRow setting="weeklyMonths" title="Then weekly for" unit="months" />
-        <DurationRow setting="monthlyYears" title="Then monthly for" unit="years" />
-      </Section>
+      {decks.length > 1 && (
+        <Section title="Schedule for" description="Decks follow the default schedule, unless one has its own.">
+          <Row title="Deck" htmlFor={deckId}>
+            <Select id={deckId} className="w-44" value={deck ?? ""} onChange={(e) => setDeck(e.target.value || null)}>
+              <option value="">Default schedule</option>
+              {decks.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                  {d.schedule ? " (its own)" : ""}
+                </option>
+              ))}
+            </Select>
+          </Row>
+          {shown && (
+            <Row title="Its own schedule" description={own ? "Its algorithm and options below are its alone." : "It follows the default schedule."} htmlFor={ownId}>
+              <Switch id={ownId} checked={own} onCheckedChange={toggleOwn} />
+            </Row>
+          )}
+        </Section>
+      )}
+      {(!shown || own) && (
+        <ScheduleTarget.Provider value={shown ? shown.id : null}>
+          <ScheduleSections />
+        </ScheduleTarget.Provider>
+      )}
       <Section title="Queue">
         <Row title="Start a queued verse" description="The next one in the queue starts that day, in a week no verse has started yet." htmlFor={id}>
           <Select
@@ -270,9 +293,33 @@ function BackupSection() {
   );
 }
 
+/** The algorithm, its options, and the fixed schedule's phases, of the schedule being changed */
+function ScheduleSections() {
+  const { algorithm } = useTargetSchedule();
+  return (
+    <>
+      <AlgorithmSection />
+      <AlgorithmOptions />
+      <Section
+        title="Phases"
+        description={
+          algorithm === "fixed"
+            ? "Changing these moves every verse, since where a verse is follows from its start date."
+            : "The fixed schedule's, used to place a verse you add partway in (at a week of its weekly reviews, say) before it has reviews of its own."
+        }
+      >
+        <DurationRow setting="dailyWeeks" title="Daily for" unit="weeks" />
+        <DurationRow setting="weeklyMonths" title="Then weekly for" unit="months" />
+        <DurationRow setting="monthlyYears" title="Then monthly for" unit="years" />
+      </Section>
+    </>
+  );
+}
+
 function DurationRow({ setting, title, unit }: { setting: keyof Durations; title: string; unit: string }) {
-  const durations = useApp((s) => s.settings.durations);
-  const update = useApp((s) => s.updateSettings);
+  const target = useContext(ScheduleTarget);
+  const { durations } = useTargetSchedule();
+  const update = ({ durations }: { durations: Durations }) => updateSchedule(target, () => ({ durations }));
   return (
     <Row title={title}>
       <Stepper

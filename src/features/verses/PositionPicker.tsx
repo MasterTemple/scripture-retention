@@ -2,7 +2,7 @@ import { MinusIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Segmented } from "@/components/ui/segmented";
 import { describeDay, type Day } from "@/core/dates";
-import { boundaries, BUCKET_UNITS, BUCKETS, describePosition, phaseLength, PHASE_NAMES, startFor, status, type Bucket } from "@/core/schedule";
+import { boundaries, BUCKET_UNITS, BUCKETS, describePosition, phaseLength, PHASE_NAMES, startFor, status, type Bucket, type Durations } from "@/core/schedule";
 import { PHASE_STYLE } from "@/lib/phase";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/state/store";
@@ -14,8 +14,9 @@ const placed = (start: Day) => ({ id: "", tag: "", ref: "", start });
  * Picks a bucket and how far into it (`Week 3 of 30`), and gives the start day that puts a verse
  * there today. A start that's upcoming or retained begins at day 1 of the daily reviews.
  */
-export function PositionPicker({ start, day, onChange }: { start: Day; day: Day; onChange: (start: Day) => void }) {
-  const durations = useApp((s) => s.settings.durations);
+export function PositionPicker({ start, day, onChange, durations: own }: { start: Day; day: Day; onChange: (start: Day) => void; durations?: Durations }) {
+  const defaults = useApp((s) => s.settings.durations);
+  const durations = own ?? defaults;
   const s = status(placed(start), day, durations);
   const inBucket = s.phase !== "upcoming" && s.phase !== "retained";
   const bucket: Bucket = s.phase === "upcoming" || s.phase === "retained" ? "daily" : s.phase;
@@ -97,8 +98,9 @@ export function PositionPicker({ start, day, onChange }: { start: Day; day: Day;
 }
 
 /** What a start day means: where the verse is today, and when each phase begins */
-export function StartSummary({ start, day }: { start: Day; day: Day }) {
-  const durations = useApp((s) => s.settings.durations);
+export function StartSummary({ start, day, durations: own }: { start: Day; day: Day; durations?: Durations }) {
+  const defaults = useApp((s) => s.settings.durations);
+  const durations = own ?? defaults;
   const b = boundaries(start, durations);
   const s = status(placed(start), day, durations);
   const rows: [string, Day, keyof typeof PHASE_STYLE][] = [

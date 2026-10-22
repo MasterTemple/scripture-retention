@@ -1,5 +1,6 @@
-import { CheckIcon, RotateCcwIcon } from "lucide-react";
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { CheckIcon, Loader2Icon, RotateCcwIcon, SparklesIcon } from "lucide-react";
+import { createContext, useContext, useId, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Switch, Textarea } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
@@ -15,17 +16,53 @@ import {
   type SrsOptions,
 } from "@/core/srs";
 import { FSRS6_DEFAULTS, fsrsVersion, parseParams } from "@/core/srs/fsrs";
+import { deckOf, type DeckSchedule } from "@/core/decks";
+import { optimizeFsrs } from "@/lib/optimizer";
 import { cn } from "@/lib/utils";
 import { reviewDay, useApp } from "@/state/store";
 import { Row, Section, Stepper } from "./rows";
 
+/** Which schedule Settings → Schedule is changing: the default (null), or a deck's own (its id) */
+export const ScheduleTarget = createContext<string | null>(null);
+
+/** The schedule being changed */
+export function useTargetSchedule(): DeckSchedule {
+  const target = useContext(ScheduleTarget);
+  const own = useApp((s) => (target === null ? undefined : s.decks.find((d) => d.id === target)?.schedule));
+  const algorithm = useApp((s) => s.settings.algorithm);
+  const srs = useApp((s) => s.settings.srs);
+  const durations = useApp((s) => s.settings.durations);
+  return useMemo(() => own ?? { algorithm, srs, durations }, [own, algorithm, srs, durations]);
+}
+
+/** Changes the schedule being changed, a part at a time */
+export function updateSchedule(target: string | null, patch: (current: DeckSchedule) => Partial<DeckSchedule>) {
+  const app = useApp.getState();
+  const own = target === null ? undefined : app.decks.find((d) => d.id === target)?.schedule;
+  if (own && target !== null) app.updateDeck(target, { schedule: { ...own, ...patch(own) } });
+  else {
+    const { algorithm, srs, durations } = app.settings;
+    app.updateSettings(patch({ algorithm, srs, durations }));
+  }
+}
+
+/** The verses the schedule being changed schedules: a deck's, or (the default's) those in decks without their own */
+function useTargetVerses() {
+  const target = useContext(ScheduleTarget);
+  const verses = useApp((s) => s.verses);
+  const decks = useApp((s) => s.decks);
+  return useMemo(() => {
+    const own = new Set(decks.filter((d) => d.schedule).map((d) => d.id));
+    return verses.filter((v) => (target === null ? !own.has(deckOf(v)) : deckOf(v) === target));
+  }, [verses, decks, target]);
+}
+
 /** Each algorithm, with how many verses it has due today, to pick one */
 export function AlgorithmSection() {
-  const algorithm = useApp((s) => s.settings.algorithm);
-  const verses = useApp((s) => s.verses);
-  const durations = useApp((s) => s.settings.durations);
-  const srs = useApp((s) => s.settings.srs);
-  const update = useApp((s) => s.updateSettings);
+  const target = useContext(ScheduleTarget);
+  const { algorithm, durations, srs } = useTargetSchedule();
+  const verses = useTargetVerses();
+  const update = (id: AlgorithmId) => updateSchedule(target, () => ({ algorithm: id }));
   const due = useMemo(() => {
     const day = reviewDay();
     return Object.fromEntries(ALGORITHM_IDS.map((id) => [id, dueVerses(verses, day, { algorithm: id, durations, srs }).length])) as Record<AlgorithmId, number>;
@@ -42,7 +79,7 @@ export function AlgorithmSection() {
               key={id}
               role="radio"
               aria-checked={on}
-              onClick={() => update({ algorithm: id })}
+              onClick={() => update(id)}
               className={cn(
                 "flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors",
                 on ? "border-primary bg-accent/60" : "bg-card hover:bg-muted/60",
@@ -68,11 +105,9 @@ export function AlgorithmSection() {
 
 /** One algorithm's options, and a way to change them a part at a time */
 function useOptions<K extends keyof SrsOptions>(key: K): [SrsOptions[K], (patch: Partial<SrsOptions[K]>) => void] {
-  const options = useApp((s) => s.settings.srs[key]);
-  const set = (patch: Partial<SrsOptions[K]>) => {
-    const { settings, updateSettings } = useApp.getState();
-    updateSettings({ srs: { ...settings.srs, [key]: { ...settings.srs[key], ...patch } } });
-  };
+  const target = useContext(ScheduleTarget);
+  const options = useTargetSchedule().srs[key];
+  const set = (patch: Partial<SrsOptions[K]>) => updateSchedule(target, (current) => ({ srs: { ...current.srs, [key]: { ...current.srs[key], ...patch } } }));
   return [options, set];
 }
 
@@ -82,7 +117,7 @@ const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 
 /** The options of the algorithm picked (none for the fixed schedule, whose phases are their own section) */
 export function AlgorithmOptions() {
-  const algorithm = useApp((s) => s.settings.algorithm);
+  const { algorithm } = useTargetSchedule();
   switch (algorithm) {
     case "fixed":
       return null;
@@ -134,7 +169,51 @@ function FsrsSection() {
         onCommit={(params) => set({ params })}
         multiline
       />
+      <OptimizeRow onFit={(params) => set({ params })} />
     </Section>
+  );
+}
+
+/**
+ * Fits FSRS's parameters to the reviews logged (fsrs-rs, the optimizer Anki runs, loaded only
+ * now), and puts them in, saying how much it learned from
+ */
+function OptimizeRow({ onFit }: { onFit: (params: number[]) => void }) {
+  const verses = useTargetVerses();
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const run = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const fit = await optimizeFsrs(verses);
+      const from = `${fit.reviews} ${fit.reviews === 1 ? "review" : "reviews"} of ${fit.verses} ${fit.verses === 1 ? "verse" : "verses"}`;
+      if (fit.reviews < 8) {
+        setResult(`Not enough to learn from yet: ${from}. FSRS learns from verses graded since they were new, a review on a later day than the one before; it keeps its defaults until there are a few hundred.`);
+        return;
+      }
+      onFit(fit.params);
+      setResult(`Fitted to ${from}${fit.reviews < 64 ? " (few enough that only a new verse's first stabilities were fitted)" : ""}.`);
+      toast.success("FSRS's parameters are fitted to your reviews");
+    } catch (error) {
+      setResult(`Couldn't fit: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+  return (
+    <div className="space-y-2 py-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 space-y-0.5">
+          <span className="block text-sm font-medium">Optimize</span>
+          <span className="block text-xs leading-snug text-muted-foreground">Fit the parameters to how you've graded these verses, as Anki's Optimize does.</span>
+        </div>
+        <Button variant="outline" className="h-10 shrink-0 sm:h-8" disabled={running} onClick={run}>
+          {running ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />} {running ? "Fitting…" : "Optimize"}
+        </Button>
+      </div>
+      {result && <p className="text-xs text-muted-foreground">{result}</p>}
+    </div>
   );
 }
 

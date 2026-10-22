@@ -9,7 +9,8 @@ import { PHASE_STYLE } from "@/lib/phase";
 import { swipeHandlers } from "@/lib/swipe";
 import { cn } from "@/lib/utils";
 import { back, currentVerse, forward, gradedAt, next, resetDay, reveal, startReview, useReview } from "@/state/review";
-import { useApp, useScheduler, useTranslation } from "@/state/store";
+import { deckOf } from "@/core/decks";
+import { useApp, useScheduler, useSchedulers, useTranslation } from "@/state/store";
 import { prefetch, usePassageText } from "@/state/text";
 import { openPanel } from "@/state/ui";
 
@@ -33,13 +34,57 @@ export function ReviewView({ day }: { day: Day }) {
 
   useReviewKeys(verse, day);
 
-  if (!verse) return <Done day={day} />;
-  return <Card key={verse.id} verse={verse} day={day} />;
+  return (
+    <>
+      <DeckChips day={day} />
+      {verse ? <Card key={verse.id} verse={verse} day={day} /> : <Done day={day} />}
+    </>
+  );
+}
+
+/** With more than one deck: which to review (each with what's due in it), or all of them */
+function DeckChips({ day }: { day: Day }) {
+  const decks = useApp((s) => s.decks);
+  const verses = useApp((s) => s.verses);
+  const chosen = useApp((s) => s.settings.reviewDeck);
+  const schedulerFor = useSchedulers();
+  const due = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const v of dueVerses(verses, day, schedulerFor)) counts.set(deckOf(v), (counts.get(deckOf(v)) ?? 0) + 1);
+    return counts;
+  }, [verses, day, schedulerFor]);
+  if (decks.length < 2) return null;
+  const choose = (deck: string | null) => {
+    useApp.getState().updateSettings({ reviewDeck: deck });
+    startReview(day);
+  };
+  const total = [...due.values()].reduce((a, b) => a + b, 0);
+  const chip = (id: string | null, name: string, n: number) => (
+    <button
+      key={id ?? "all"}
+      onClick={() => choose(id)}
+      aria-pressed={chosen === id}
+      className={cn(
+        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm whitespace-nowrap transition-colors sm:h-8",
+        chosen === id ? "border-primary bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {name}
+      <span className={cn("text-xs tabular-nums", chosen === id ? "text-primary-foreground/80" : "text-muted-foreground")}>{n}</span>
+    </button>
+  );
+  return (
+    <div className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1 scrollbar-thin" data-no-swipe>
+      {chip(null, "All decks", total)}
+      {decks.map((d) => chip(d.id, d.name, due.get(d.id) ?? 0))}
+    </div>
+  );
 }
 
 /** Space or Enter (or →) continues and goes on (Good); 1–4 grade, in the buttons' order; ← goes back; M moves */
 function useReviewKeys(verse: Verse | null, day: Day) {
-  const algorithm = useApp((s) => s.settings.algorithm);
+  const schedulerFor = useSchedulers();
+  const algorithm = verse ? schedulerFor(verse).algorithm : "fixed";
   useEffect(() => {
     const grades = gradesFor(algorithm);
     const onKey = (e: KeyboardEvent) => {
@@ -66,7 +111,8 @@ function useReviewKeys(verse: Verse | null, day: Day) {
 }
 
 function Card({ verse, day }: { verse: Verse; day: Day }) {
-  const sch = useScheduler();
+  const sch = useSchedulers()(verse);
+  const passage = useApp((s) => (verse.passage ? s.passages.find((p) => p.id === verse.passage) : undefined));
   const { index, queue, revealed } = useReview();
   // The topic and reference where they'll be once the verse shows, so nothing moves on revealing
   const steady = useApp((s) => s.settings.steadyCard);
@@ -114,14 +160,15 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
       >
         {/* The topic and reference stay put while a long passage scrolls below them */}
         <div className={cn("px-5 sm:px-8", top ? "sticky top-[calc(var(--header-h)+env(safe-area-inset-top))] z-10 rounded-t-2xl border-b bg-card/95 py-4 backdrop-blur" : "py-8")}>
-          <div className={cn("font-semibold break-words text-primary", top ? "text-xl" : "text-2xl sm:text-3xl")}>#{verse.tag || "?"}</div>
+          {passage && <div className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{passage.ref}</div>}
+          {(verse.tag || !passage) && <div className={cn("font-semibold break-words text-primary", top ? "text-xl" : "text-2xl sm:text-3xl")}>#{verse.tag || "?"}</div>}
           <div className={cn("font-serif font-semibold tracking-tight", top ? "text-2xl" : "mt-2 text-3xl sm:text-4xl")}>{verse.ref}</div>
         </div>
         {revealed ? (
           <VerseText reference={verse.ref} />
         ) : !prompt ? null : (
           <p className={cn("text-sm text-balance text-muted-foreground", top ? "px-5 py-5 sm:px-8 sm:py-6" : "max-w-xs px-6 pb-8")}>
-            Say the topic, the reference, and the verse aloud, then tap to check.
+            {passage && !verse.tag ? "Say the reference and recite it aloud, then tap to check." : "Say the topic, the reference, and the verse aloud, then tap to check."}
           </p>
         )}
       </div>
@@ -161,7 +208,7 @@ const GRADE_STYLE: Record<Grade, string> = {
  * sitting), and rescheduling by hand
  */
 function GradeButtons({ verse, day }: { verse: Verse; day: Day }) {
-  const sch = useScheduler();
+  const sch = useSchedulers()(verse);
   const at = useReview(gradedAt);
   const options = preview(verse, day, sch, at);
   return (
@@ -250,8 +297,11 @@ function VerseText({ reference }: { reference: string }) {
 }
 
 function Done({ day }: { day: Day }) {
-  const verses = useApp((s) => s.verses);
+  const all = useApp((s) => s.verses);
+  const chosen = useApp((s) => s.settings.reviewDeck);
+  const verses = chosen === null ? all : all.filter((v) => deckOf(v) === chosen);
   const sch = useScheduler();
+  const schedulerFor = useSchedulers();
   const names = isAdaptive(sch.algorithm) ? ADAPTIVE_PHASE_NAMES : PHASE_NAMES;
   const reviewed = useReview((s) => s.reviewed);
 
@@ -282,9 +332,9 @@ function Done({ day }: { day: Day }) {
     );
   }
 
-  const statuses = verses.map((v) => verseStatus(v, day, sch));
+  const statuses = verses.map((v) => verseStatus(v, day, schedulerFor(v)));
   const upcoming = statuses.flatMap((s) => (s.next && s.next > day ? [s.next] : [])).sort()[0];
-  const again = dueVerses(verses, day, sch);
+  const again = dueVerses(verses, day, schedulerFor);
   const doneToday = verses.filter((v) => v.last === day).length;
   return (
     <div className="flex flex-1 animate-fade-up flex-col items-center justify-center gap-5 px-2 py-10 text-center">

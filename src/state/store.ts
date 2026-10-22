@@ -9,6 +9,8 @@ import { DEFAULT_REMINDERS, type Reminders } from "@/core/reminders";
 import { DEFAULT_ACCENT, type Accent } from "@/lib/color";
 import { DEFAULT_DURATIONS, type Durations, type Order, type Verse } from "@/core/schedule";
 import { DEFAULT_SRS, history, isPlacing, mergeSrs, placement, toAlgorithm, withEntry, type AlgorithmId, type Grade, type Scheduler, type SrsOptions } from "@/core/srs";
+import { DEFAULT_DECK, DEFAULT_DECKS, deckOf, deckScheduler, readDecks, schedulers, type Deck, type DeckSchedule } from "@/core/decks";
+import type { PassageGroup } from "@/core/passages";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -38,6 +40,8 @@ export interface Settings {
   /** How large the verse is set on a card, 1 being the default */
   textScale: number;
   theme: Theme;
+  /** The deck reviewed (all of them when null) */
+  reviewDeck: string | null;
 }
 
 interface State {
@@ -47,6 +51,10 @@ interface State {
   /** The last day the queue was looked at, so days the app wasn't opened on still start theirs */
   queueChecked?: Day;
   settings: Settings;
+  /** The decks, the default deck first */
+  decks: Deck[];
+  /** Books, chapters, and other passages added as one entry, whose cards are verses */
+  passages: PassageGroup[];
 
   addVerses: (verses: Omit<Verse, "id">[]) => void;
   updateVerse: (id: string, patch: Partial<Omit<Verse, "id">>) => void;
@@ -73,7 +81,21 @@ interface State {
   /** Adds a translation (from fetch.bible's list, or uploaded) and reads from it */
   addTranslation: (t: Translation) => void;
   removeTranslation: (id: string) => void;
+  /** Adds a deck (following the default schedule); gives its id */
+  addDeck: (name: string) => string;
+  updateDeck: (id: string, patch: { name?: string; schedule?: DeckSchedule | undefined }) => void;
+  /** Deletes a deck with its verses, passages, and queued verses (not the default deck) */
+  removeDeck: (id: string) => void;
+  /** Adds a passage with its cards, as one; gives its id */
+  addPassage: (passage: Omit<PassageGroup, "id">, cards: { ref: string; start: Day }[]) => string;
+  /** Changes a passage's topic or deck, and its cards' with it */
+  updatePassage: (id: string, patch: { tag?: string; deck?: string }) => void;
+  /** Deletes a passage with its cards, as one */
+  removePassage: (id: string) => void;
 }
+
+/** The phase lengths placing a verse uses: its deck's */
+const durationsOf = (s: { settings: Settings; decks: Deck[] }, v: Verse) => deckScheduler(s.settings, s.decks, v.deck).durations;
 
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -125,6 +147,8 @@ export const useApp = create<State>()(
     (set) => ({
       verses: [],
       queue: [],
+      decks: DEFAULT_DECKS,
+      passages: [],
       settings: {
         algorithm: "fixed",
         srs: DEFAULT_SRS,
@@ -141,6 +165,7 @@ export const useApp = create<State>()(
         reminders: DEFAULT_REMINDERS,
         textScale: 1,
         theme: "system",
+        reviewDeck: null,
       },
 
       addVerses: (verses) => set((s) => ({ verses: [...s.verses, ...verses.map((v) => ({ ...v, id: newId() }))] })),
@@ -155,7 +180,7 @@ export const useApp = create<State>()(
               wrote = at!;
               return { ...v, last: day, log: v.log!.map((e, i) => (i === at ? { day, grade } : e)) };
             }
-            const log = withEntry(v, { day, grade }, s.settings.durations);
+            const log = withEntry(v, { day, grade }, durationsOf(s, v));
             wrote = log.length - 1;
             return { ...v, last: day, log };
           }),
@@ -167,13 +192,13 @@ export const useApp = create<State>()(
           verses: s.verses.map((v) => {
             if (v.id !== id) return v;
             const moved = { ...v, start, last: reviewed ? day : v.last };
-            const placed = placement(moved, day, s.settings.durations) ?? { day, set: 0 };
-            return { ...moved, log: [...history(v, day, s.settings.durations), placed] };
+            const placed = placement(moved, day, durationsOf(s, v)) ?? { day, set: 0 };
+            return { ...moved, log: [...history(v, day, durationsOf(s, v)), placed] };
           }),
         })),
       placeVerse: (id, days, day, reviewed) =>
         set((s) => ({
-          verses: s.verses.map((v) => (v.id === id ? { ...v, last: reviewed ? day : v.last, log: withEntry(v, { day, set: days }, s.settings.durations) } : v)),
+          verses: s.verses.map((v) => (v.id === id ? { ...v, last: reviewed ? day : v.last, log: withEntry(v, { day, set: days }, durationsOf(s, v)) } : v)),
         })),
       removeVerse: (id) => set((s) => ({ verses: s.verses.filter((v) => v.id !== id) })),
       queueVerses: (verses) => set((s) => ({ queue: [...s.queue, ...verses.map((v) => ({ ...v, id: newId() }))] })),
@@ -196,7 +221,7 @@ export const useApp = create<State>()(
       unstart: (id) =>
         set((s) => {
           const v = s.verses.find((x) => x.id === id);
-          return v ? { verses: s.verses.filter((x) => x.id !== id), queue: [...s.queue, { id: v.id, tag: v.tag, ref: v.ref }] } : {};
+          return v ? { verses: s.verses.filter((x) => x.id !== id), queue: [...s.queue, { id: v.id, tag: v.tag, ref: v.ref, deck: v.deck }] } : {};
         }),
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       addTranslation: (t) =>
@@ -209,18 +234,60 @@ export const useApp = create<State>()(
             translationId: s.settings.translationId === id ? DEFAULT_TRANSLATION : s.settings.translationId,
           },
         })),
+      addDeck: (name) => {
+        const id = newId();
+        set((s) => ({ decks: [...s.decks, { id, name }] }));
+        return id;
+      },
+      updateDeck: (id, patch) => set((s) => ({ decks: s.decks.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
+      removeDeck: (id) =>
+        set((s) =>
+          id === DEFAULT_DECK
+            ? {}
+            : {
+                decks: s.decks.filter((d) => d.id !== id),
+                verses: s.verses.filter((v) => deckOf(v) !== id),
+                passages: s.passages.filter((p) => deckOf(p) !== id),
+                queue: s.queue.filter((q) => deckOf(q) !== id),
+                settings: s.settings.reviewDeck === id ? { ...s.settings, reviewDeck: null } : s.settings,
+              },
+        ),
+      addPassage: (passage, cards) => {
+        const id = newId();
+        const deck = passage.deck === DEFAULT_DECK ? undefined : passage.deck;
+        set((s) => ({
+          passages: [...s.passages, { ...passage, deck, id }],
+          verses: [...s.verses, ...cards.map((c) => ({ id: newId(), tag: passage.tag, ref: c.ref, start: c.start, passage: id, ...(deck ? { deck } : {}) }))],
+        }));
+        return id;
+      },
+      updatePassage: (id, patch) =>
+        set((s) => {
+          const deck = patch.deck === DEFAULT_DECK ? undefined : patch.deck;
+          const change = <T extends { tag: string; deck?: string }>(x: T): T => {
+            const next = { ...x, ...(patch.tag !== undefined ? { tag: patch.tag } : {}) };
+            if (patch.deck === undefined) return next;
+            if (deck) return { ...next, deck };
+            const { deck: _, ...rest } = next;
+            return rest as T;
+          };
+          return { passages: s.passages.map((p) => (p.id === id ? change(p) : p)), verses: s.verses.map((v) => (v.passage === id ? change(v) : v)) };
+        }),
+      removePassage: (id) => set((s) => ({ passages: s.passages.filter((p) => p.id !== id), verses: s.verses.filter((v) => v.passage !== id) })),
     }),
     {
       name: "scripture-retention",
       version: 1,
       storage: lazyStorage(),
-      partialize: ({ verses, queue, queueChecked, settings }) => ({ verses, queue, queueChecked, settings }) as State,
+      partialize: ({ verses, queue, queueChecked, settings, decks, passages }) => ({ verses, queue, queueChecked, settings, decks, passages }) as State,
       // Settings added since a visit keep their defaults
       merge: (saved, current) => {
         const s = (saved ?? {}) as Partial<State>;
         return {
           ...current,
           ...s,
+          decks: readDecks(s.decks),
+          passages: Array.isArray(s.passages) ? s.passages : [],
           settings: {
             ...current.settings,
             ...s.settings,
@@ -265,13 +332,26 @@ export function useReviewDay(): Day {
   return day;
 }
 
-/** What verses are scheduled by, kept the same object until a part of it changes */
+/** The default schedule (decks without their own follow it), kept the same object until a part of it changes */
 export function useScheduler(): Scheduler {
   const algorithm = useApp((s) => s.settings.algorithm);
   const durations = useApp((s) => s.settings.durations);
   const srs = useApp((s) => s.settings.srs);
   return useMemo(() => ({ algorithm, durations, srs }), [algorithm, durations, srs]);
 }
+
+/** What schedules each verse (its deck's schedule, or the default) */
+export function useSchedulers(): (verse: Verse) => Scheduler {
+  const defaults = useScheduler();
+  const decks = useApp((s) => s.decks);
+  return useMemo(() => schedulers(defaults, decks), [defaults, decks]);
+}
+
+/** What schedules each verse, outside React */
+export const schedulersNow = (): ((verse: Verse) => Scheduler) => {
+  const { settings, decks } = useApp.getState();
+  return schedulers(settings, decks);
+};
 
 export const useTranslation = (): Translation => {
   const id = useApp((s) => s.settings.translationId);

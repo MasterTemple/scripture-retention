@@ -69,9 +69,9 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
-  // Both packages fetch their .wasm next to themselves (`new URL(…, import.meta.url)`),
+  // These packages fetch their .wasm next to themselves (`new URL(…, import.meta.url)`),
   // which pre-bundling would break
-  optimizeDeps: { exclude: ["logoxide", "topos-bible"] },
+  optimizeDeps: { exclude: ["logoxide", "topos-bible", "scripture-srs"] },
   worker: { format: "es" },
   build: { chunkSizeWarningLimit: 800 },
   server: { host: true },

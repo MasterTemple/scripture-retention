@@ -1,15 +1,16 @@
-import { CalendarClockIcon, PlayIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import { BookOpenIcon, CalendarClockIcon, PlayIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
-import { Input, Label } from "@/components/ui/primitives";
+import { Input, Label, Select } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
 import { daysBetween, describeDay, isDay, type Day } from "@/core/dates";
 import { queueStarts } from "@/core/queue";
 import { isAdaptive, verseStatus } from "@/core/srs";
-import { useApp, useScheduler } from "@/state/store";
-import { closePanel } from "@/state/ui";
+import { DEFAULT_DECK, deckOf, deckScheduler } from "@/core/decks";
+import { schedulersNow, useApp, useScheduler } from "@/state/store";
+import { closePanel, openPanel } from "@/state/ui";
 import { AdaptiveSummary, IntervalPicker, ReviewHistory } from "./AdaptiveSchedule";
 import { PositionPicker, StartSummary } from "./PositionPicker";
 import { ReferenceInput } from "./ReferenceInput";
@@ -20,7 +21,7 @@ type Where = "schedule" | "queue";
  * Adds a verse (`verseId` null) or edits one, started or queued: its topic, reference, and where
  * it is in the schedule, or that it waits in the queue
  */
-export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseId: string | null; day: Day; queue?: boolean }) {
+export function EditDialog({ verseId, day, queue: queueFirst = false, deck: given }: { verseId: string | null; day: Day; queue?: boolean; deck?: string }) {
   const verse = useApp((s) => (verseId ? s.verses.find((v) => v.id === verseId) : undefined));
   const queued = useApp((s) => (verseId ? s.queue.find((q) => q.id === verseId) : undefined));
   const existing = verse ?? queued;
@@ -30,8 +31,12 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
   const [start, setStart] = useState<Day>(verse?.start ?? day);
   const [date, setDate] = useState<string>(start);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const ids = { tag: useId(), ref: useId(), date: useId() };
-  const sch = useScheduler();
+  const ids = { tag: useId(), ref: useId(), date: useId(), deck: useId() };
+  const decks = useApp((s) => s.decks);
+  // A card of a passage: its reference, topic, and deck are the passage's, and it's deleted with it
+  const passage = useApp((s) => (verse?.passage ? s.passages.find((p) => p.id === verse.passage) : undefined));
+  const [deck, setDeck] = useState(existing ? deckOf(existing) : (given ?? DEFAULT_DECK));
+  const sch = deckScheduler(useScheduler(), decks, deck);
   const adaptive = isAdaptive(sch.algorithm);
   // A verse with reviews logged is placed by its history under an adaptive algorithm, not its start
   const tracked = adaptive && !!verse?.log?.length;
@@ -52,7 +57,7 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
       return;
     }
     const app = useApp.getState();
-    const fields = { tag: tag.trim().replace(/^#/, ""), ref: ref.trim().replace(/\s+/g, " ") };
+    const fields = { tag: tag.trim().replace(/^#/, ""), ref: ref.trim().replace(/\s+/g, " "), deck: deck === DEFAULT_DECK ? undefined : deck };
     if (where === "schedule") {
       if (verse) {
         app.updateVerse(verse.id, fields);
@@ -98,7 +103,7 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
       onOpenAutoFocus={(e) => existing && e.preventDefault()}
       footer={
         <>
-          {existing && (
+          {existing && !passage && (
             <Button variant={confirmDelete ? "destructive" : "ghost"} className="mr-auto text-destructive data-[confirm=true]:text-white" data-confirm={confirmDelete} onClick={remove}>
               <Trash2Icon /> {confirmDelete ? "Tap to delete" : "Delete"}
             </Button>
@@ -114,43 +119,69 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
           save();
         }}
       >
-        <div className="space-y-2">
-          <Label htmlFor={ids.ref}>Reference</Label>
-          <ReferenceInput id={ids.ref} value={ref} onChange={setRef} autoFocus={!existing} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={ids.tag}>Topic</Label>
-          <div className="relative">
-            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 font-semibold text-primary">#</span>
-            <Input
-              id={ids.tag}
-              value={tag}
-              onChange={(e) => setTag(e.target.value.replace(/\s/g, "-"))}
-              placeholder="guard-your-heart"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              className="pl-6 font-medium text-primary"
-            />
+        {passage ? (
+          <div className="flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="font-serif text-lg font-semibold">{ref}</div>
+              <div className="text-xs text-muted-foreground">A card of {passage.ref}, which is added, moved between decks, and deleted as a whole.</div>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => openPanel({ kind: "passage", passageId: passage.id })}>
+              <BookOpenIcon /> Open
+            </Button>
           </div>
-          <p className="text-xs text-muted-foreground">A word or two to recall it by, said before the reference.</p>
-        </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor={ids.ref}>Reference</Label>
+              <ReferenceInput id={ids.ref} value={ref} onChange={setRef} autoFocus={!existing} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={ids.tag}>Topic</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 font-semibold text-primary">#</span>
+                <Input
+                  id={ids.tag}
+                  value={tag}
+                  onChange={(e) => setTag(e.target.value.replace(/\s/g, "-"))}
+                  placeholder="guard-your-heart"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="done"
+                  className="pl-6 font-medium text-primary"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">A word or two to recall it by, said before the reference.</p>
+            </div>
+            {decks.length > 1 && (
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor={ids.deck}>Deck</Label>
+                <Select id={ids.deck} className="w-auto min-w-40" value={deck} onChange={(e) => setDeck(e.target.value)}>
+                  {decks.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
 
-        <Segmented<Where>
-          className="w-full"
-          value={where}
-          onChange={setWhere}
-          options={[
-            { value: "schedule", label: <><PlayIcon /> Start it</> },
-            { value: "queue", label: <><CalendarClockIcon /> Queue it</> },
-          ]}
-        />
+            <Segmented<Where>
+              className="w-full"
+              value={where}
+              onChange={setWhere}
+              options={[
+                { value: "schedule", label: <><PlayIcon /> Start it</> },
+                { value: "queue", label: <><CalendarClockIcon /> Queue it</> },
+              ]}
+            />
+          </>
+        )}
         {where === "queue" ? (
           <QueueNote id={queued?.id} day={day} />
         ) : tracked && verse ? (
           <>
-            <AdaptiveSummary verse={verse} day={day} />
+            <AdaptiveSummary verse={{ ...verse, deck }} day={day} />
             {forget ? (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-3 text-sm">
                 <span>Starts over as new when saved.</span>
@@ -176,7 +207,7 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
           <>
             <div className="space-y-3">
               <Label>Where it is today</Label>
-              <PositionPicker start={start} day={day} onChange={setStart} />
+              <PositionPicker start={start} day={day} onChange={setStart} durations={sch.durations} />
             </div>
             <div className="flex items-center justify-between gap-4">
               <Label htmlFor={ids.date} className="block space-y-1">
@@ -194,7 +225,7 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
                 className="w-auto min-w-40"
               />
             </div>
-            {adaptive ? <AdaptiveSummary verse={{ id: verse?.id ?? "", tag, ref, start, last: verse?.last }} day={day} /> : <StartSummary start={start} day={day} />}
+            {adaptive ? <AdaptiveSummary verse={{ id: verse?.id ?? "", tag, ref, start, last: verse?.last, deck }} day={day} /> : <StartSummary start={start} day={day} durations={sch.durations} />}
             {verse?.log && <ReviewHistory log={verse.log} />}
           </>
         )}
@@ -208,7 +239,7 @@ export function EditDialog({ verseId, day, queue: queueFirst = false }: { verseI
 
 /** Days from `day` to a verse's next review */
 function untilNext(verse: Parameters<typeof verseStatus>[0], day: Day) {
-  const s = verseStatus(verse, day, useApp.getState().settings);
+  const s = verseStatus(verse, day, schedulersNow()(verse));
   return Math.max(1, s.next ? daysBetween(day, s.next) : (s.interval ?? 1));
 }
 

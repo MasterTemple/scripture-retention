@@ -2,6 +2,7 @@ import { addDays, today, weekday, type Day } from "./dates.ts";
 import { dueFromQueue, type AutoStart, type Queued } from "./queue.ts";
 import type { Durations, Verse } from "./schedule.ts";
 import { DEFAULT_SRS, dueVerses, verseStatus, type AlgorithmId, type Scheduler, type SrsOptions } from "./srs/index.ts";
+import { schedulers, type Deck } from "./decks.ts";
 
 /** When to be reminded: to review (each day), and to add a verse (one day a week) */
 export interface Reminders {
@@ -19,6 +20,8 @@ export interface ReminderState {
   verses: Verse[];
   queue: Queued[];
   queueChecked?: Day;
+  /** Decks with their own schedules (none in state saved before decks) */
+  decks?: Deck[];
   settings: { algorithm?: AlgorithmId; srs?: SrsOptions; durations: Durations; autoStart: AutoStart; dayStartsAt: number; reminders: Reminders };
 }
 
@@ -55,7 +58,8 @@ const minutes = (time: string) => {
  */
 export function dueReminders(state: ReminderState, now: Date, sent: Sent): Reminder[] {
   const { reminders, durations, autoStart, dayStartsAt } = state.settings;
-  const sch: Scheduler = { algorithm: state.settings.algorithm ?? "fixed", durations, srs: state.settings.srs ?? DEFAULT_SRS };
+  const defaults: Scheduler = { algorithm: state.settings.algorithm ?? "fixed", durations, srs: state.settings.srs ?? DEFAULT_SRS };
+  const schedulerFor = schedulers(defaults, state.decks ?? []);
   const day = reviewDayAt(now, dayStartsAt);
   const clock = now.getHours() * 60 + now.getMinutes();
   const { started, waiting } = dueFromQueue(state.queue, state.verses, state.queueChecked, day, autoStart);
@@ -63,7 +67,7 @@ export function dueReminders(state: ReminderState, now: Date, sent: Sent): Remin
   const out: Reminder[] = [];
 
   if (reminders.review.enabled && sent.review !== day && clock >= minutes(reminders.review.time)) {
-    const due = dueVerses(verses, day, sch).length;
+    const due = dueVerses(verses, day, schedulerFor).length;
     if (due > 0) {
       out.push({
         kind: "review",
@@ -76,7 +80,7 @@ export function dueReminders(state: ReminderState, now: Date, sent: Sent): Remin
 
   const n = reminders.newVerse;
   if (n.enabled && sent.newVerse !== day && weekday(day) === n.weekday && clock >= minutes(n.time)) {
-    const upcoming = verses.some((v) => verseStatus(v, day, sch).phase === "upcoming");
+    const upcoming = verses.some((v) => verseStatus(v, day, schedulerFor(v)).phase === "upcoming");
     if (waiting.length === 0 && !upcoming) {
       out.push({ kind: "newVerse", title: "A new verse this week", body: "Nothing is queued to start next: add a verse to memorize.", path: "./?view=verses" });
     }

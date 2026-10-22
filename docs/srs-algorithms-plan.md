@@ -185,7 +185,8 @@ module like Ebisu's in both engines, conformance cases, and a "fit" button like 
       examples run and checked), Ratatui TUI (reads/writes the app's backup; tested, and run in
       tmux against fetch.bible)
 - [x] 14. FSRS optimizer in Rust and the bindings (vendored for the web app)
-- [ ] 15. Decks and passages: data, engine (per-deck schedulers), store, import/export, backup
-- [ ] 16. UI: deck chips, passage dialog (picker, units), passages in Verses, review by deck,
-      Settings per deck, Optimize button
+- [x] 15. Decks and passages: data, engine (per-deck schedulers), store, import/export, backup
+- [x] 16. UI: deck chips, passage dialog (picker, units), passages in Verses, review by deck,
+      Settings per deck, Optimize button (checked in Chromium: 1 Peter by chapters into a new
+      deck, reviewing it alone, a deck's own schedule, optimizing 420 reviews in the browser)
 - [ ] 17. Rust: deck/passage fields, TUI per-deck schedules; README; browser check

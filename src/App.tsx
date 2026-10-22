@@ -9,12 +9,14 @@ import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { TranslationDialog } from "@/features/settings/TranslationDialog";
 import { EditDialog } from "@/features/verses/EditDialog";
 import { ImportDialog } from "@/features/verses/ImportDialog";
+import { DeckDialog } from "@/features/verses/DeckDialog";
 import { MoveDialog } from "@/features/verses/MoveDialog";
+import { PassageDialog } from "@/features/verses/PassageDialog";
 import { VersesView } from "@/features/verses/VersesView";
 import { applyAccent } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import { startReview } from "@/state/review";
-import { startDueQueued, useApp, useReviewDay, useScheduler } from "@/state/store";
+import { startDueQueued, useApp, useReviewDay, useSchedulers } from "@/state/store";
 import { closePanel, closePanelsFrom, openPanel, showView, useUi, type Panel, type View } from "@/state/ui";
 
 function useTheme() {
@@ -56,8 +58,8 @@ function Logo() {
 
 function useDueCount(day: string) {
   const verses = useApp((s) => s.verses);
-  const sch = useScheduler();
-  return dueVerses(verses, day, sch).length;
+  const schedulerFor = useSchedulers();
+  return dueVerses(verses, day, schedulerFor).length;
 }
 
 export default function App() {
@@ -188,13 +190,17 @@ function PanelContent({ panel, day }: { panel: Panel; day: string }) {
   const verses = useApp((s) => s.verses);
   switch (panel.kind) {
     case "edit":
-      return <EditDialog key={panel.verseId ?? "new"} verseId={panel.verseId} queue={panel.queue} day={day} />;
+      return <EditDialog key={panel.verseId ?? "new"} verseId={panel.verseId} queue={panel.queue} deck={panel.deck} day={day} />;
     case "import":
       return <ImportDialog day={day} />;
     case "settings":
       return <SettingsDialog />;
     case "translations":
       return <TranslationDialog onDone={closePanel} />;
+    case "passage":
+      return <PassageDialog key={panel.passageId ?? "new"} passageId={panel.passageId} deck={panel.deck} day={day} />;
+    case "deck":
+      return <DeckDialog key={panel.deckId ?? "new"} deckId={panel.deckId} />;
     case "move": {
       const verse = verses.find((v) => v.id === panel.verseId);
       return verse ? <MoveDialog verse={verse} day={day} /> : null;

@@ -2,7 +2,8 @@ import { create } from "zustand";
 import type { Day } from "@/core/dates";
 import type { Verse } from "@/core/schedule";
 import { dueVerses, isPlacing, verseStatus, type Grade } from "@/core/srs";
-import { reviewDay, useApp } from "./store";
+import { deckOf } from "@/core/decks";
+import { reviewDay, schedulersNow, useApp } from "./store";
 
 /**
  * Today's review: the verses due when it began (by id), one card at a time, the topic and
@@ -56,9 +57,12 @@ useApp.subscribe((state, previous) => {
  * the review stays as it is and the verses newly due join its end.
  */
 export function startReview(day: Day = reviewDay(), keepCurrent = false) {
-  const { verses, settings } = useApp.getState();
+  const { verses, settings, decks } = useApp.getState();
   const r = useReview.getState();
-  const due = dueVerses(verses, day, settings, settings.order).map((v) => v.id);
+  // The deck chosen (if it's still there), or every deck
+  const chosen = decks.some((d) => d.id === settings.reviewDeck) ? settings.reviewDeck : null;
+  const pool = chosen === null ? verses : verses.filter((v) => deckOf(v) === chosen);
+  const due = dueVerses(pool, day, schedulersNow(), settings.order).map((v) => v.id);
   if (keepCurrent && r.day === day && r.index < r.queue.length) {
     const added = due.filter((id) => !r.queue.includes(id));
     useReview.setState({ queue: [...r.queue, ...added], wrote: [...r.wrote, ...added.map(() => null)] });
@@ -137,13 +141,14 @@ const lastEntry = (id: string) => (useApp.getState().verses.find((v) => v.id ===
  * before the review is done; graded again after going back, it may no longer need that second look
  */
 function advance(verse: Verse | null, day: Day, wrote: number | null = null) {
-  const { verses, settings } = useApp.getState();
+  const { verses } = useApp.getState();
   const updated = verse && verses.find((v) => v.id === verse.id);
+  const schedulerFor = schedulersNow();
   useReview.setState((r) => {
     const marks = r.wrote.slice();
     marks[r.index] = wrote;
     if (!updated) return { index: r.index + 1, revealed: false, wrote: marks };
-    const due = verseStatus(updated, day, settings).due;
+    const due = verseStatus(updated, day, schedulerFor(updated)).due;
     const aheadHas = r.queue.slice(r.index + 1).includes(updated.id);
     if (due && !aheadHas) return { index: r.index + 1, revealed: false, queue: [...r.queue, updated.id], wrote: [...marks, null] };
     if (!due && aheadHas) {

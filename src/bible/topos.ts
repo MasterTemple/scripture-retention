@@ -1,4 +1,5 @@
 import { BookStyle, initialized, OffsetUnit, ToposOptions, type BookInfo, type Topos } from "topos-bible";
+import type { ReadPassage } from "@/core/passages";
 import type { VerseRef } from "./types";
 
 let instance: Topos | null = null;
@@ -46,4 +47,23 @@ export function readReference(text: string): Passage[] {
 /** Reference completions for what's typed at `cursor`, replacing `start`–`end` with `text` */
 export function completeReference(text: string, cursor: number, limit = 6) {
   return topos().complete(text, cursor, OffsetUnit.Utf16, BookStyle.Name, limit);
+}
+
+/** Every book, in order */
+export const allBooks = (): readonly BookInfo[] => books;
+
+/** The passages a reference names, as the cards of a passage are made from them */
+export function readPassages(text: string): ReadPassage[] {
+  return readReference(text).map((p) => {
+    const book = bookById(p.bookId);
+    return { book: book.name, chapters: book.chapters, reference: p.reference, verses: p.verses };
+  });
+}
+
+/** How many verses a chapter of a book has (by its name) */
+export function chapterLength(bookName: string, chapter: number): number {
+  const book = books.find((b) => b.name === bookName);
+  if (!book) return 0;
+  // A single-chapter book's chapter is the book ("Jude 1" is its first verse)
+  return readReference(book.chapters === 1 ? book.name : `${book.name} ${chapter}`)[0]?.verses.length ?? 0;
 }

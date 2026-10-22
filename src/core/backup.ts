@@ -2,6 +2,8 @@ import { isDay, type Day } from "./dates.ts";
 import type { Queued } from "./queue.ts";
 import type { Verse } from "./schedule.ts";
 import type { LogEntry } from "./srs/types.ts";
+import type { Deck } from "./decks.ts";
+import { CARD_UNITS, type PassageGroup } from "./passages.ts";
 
 /**
  * Everything, as one file: the verses with their review history (which a list leaves out), the
@@ -15,12 +17,32 @@ export interface Backup {
   queue: Queued[];
   queueChecked?: Day;
   settings: Record<string, unknown>;
+  /** Decks, and books or passages added as one (absent in backups from before them) */
+  decks?: Deck[];
+  passages?: PassageGroup[];
 }
 
-export function makeBackup(state: { verses: Verse[]; queue: Queued[]; queueChecked?: Day; settings: object }, now = new Date()): Backup {
-  const { verses, queue, queueChecked, settings } = state;
-  return { app: "scripture-retention", version: 1, saved: now.toISOString(), verses, queue, ...(queueChecked ? { queueChecked } : {}), settings: { ...settings } };
+export function makeBackup(
+  state: { verses: Verse[]; queue: Queued[]; queueChecked?: Day; settings: object; decks?: Deck[]; passages?: PassageGroup[] },
+  now = new Date(),
+): Backup {
+  const { verses, queue, queueChecked, settings, decks, passages } = state;
+  return {
+    app: "scripture-retention",
+    version: 1,
+    saved: now.toISOString(),
+    verses,
+    queue,
+    ...(queueChecked ? { queueChecked } : {}),
+    settings: { ...settings },
+    ...(decks ? { decks } : {}),
+    ...(passages ? { passages } : {}),
+  };
 }
+
+const isDeck = (d: unknown): d is Deck => typeof d === "object" && d !== null && typeof (d as Deck).id === "string" && typeof (d as Deck).name === "string";
+const isPassage = (p: unknown): p is PassageGroup =>
+  typeof p === "object" && p !== null && typeof (p as PassageGroup).id === "string" && typeof (p as PassageGroup).ref === "string" && typeof (p as PassageGroup).tag === "string" && CARD_UNITS.includes((p as PassageGroup).unit);
 
 const isEntry = (e: unknown): e is LogEntry => {
   if (typeof e !== "object" || e === null) return false;
@@ -60,5 +82,7 @@ export function readBackup(text: string): Backup | string {
   if (!Array.isArray(b.verses) || !b.verses.every(isVerse)) return "The backup's verses can't be read.";
   if (!Array.isArray(b.queue) || !b.queue.every(isQueued)) return "The backup's queue can't be read.";
   if (typeof b.settings !== "object" || b.settings === null) return "The backup's settings can't be read.";
+  if (b.decks !== undefined && !(Array.isArray(b.decks) && b.decks.every(isDeck))) return "The backup's decks can't be read.";
+  if (b.passages !== undefined && !(Array.isArray(b.passages) && b.passages.every(isPassage))) return "The backup's passages can't be read.";
   return b as Backup;
 }

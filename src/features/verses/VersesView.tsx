@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronUpIcon, CopyIcon, DownloadIcon, ListPlusIcon, MoreHorizontalIcon, PlusIcon, SearchIcon, Share2Icon, XIcon } from "lucide-react";
+import { BookOpenIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, CopyIcon, DownloadIcon, FolderPlusIcon, ListPlusIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, SearchIcon, Share2Icon, XIcon } from "lucide-react";
 import { DropdownMenu as Menu } from "radix-ui";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -6,25 +6,42 @@ import { Input } from "@/components/ui/primitives";
 import { describeDay, type Day } from "@/core/dates";
 import { queueStarts, type Queued } from "@/core/queue";
 import { ADAPTIVE_PHASE_NAMES, describePosition, PHASE_NAMES, PHASES } from "@/core/schedule";
-import { isAdaptive, verseStatus } from "@/core/srs";
+import { isAdaptive, verseStatus, type Scheduler } from "@/core/srs";
+import { deckOf, deckScheduler } from "@/core/decks";
+import { describeUnit, type PassageGroup } from "@/core/passages";
+import type { Verse } from "@/core/schedule";
 import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
 import { PHASE_STYLE } from "@/lib/phase";
 import { cn } from "@/lib/utils";
-import { useApp, useScheduler } from "@/state/store";
-import { openPanel } from "@/state/ui";
+import { useApp, useScheduler, useSchedulers } from "@/state/store";
+import { openPanel, useUi } from "@/state/ui";
 
-/** Every verse by where it is (daily, weekly, monthly, upcoming, retained); tap one to edit it */
+/**
+ * Every verse by where it is (daily, weekly, monthly, upcoming, retained), and the passages added
+ * as one, in a deck or all of them; tap one to edit it
+ */
 export function VersesView({ day }: { day: Day }) {
-  const verses = useApp((s) => s.verses);
-  const queue = useApp((s) => s.queue);
-  const sch = useScheduler();
+  const allVerses = useApp((s) => s.verses);
+  const allQueue = useApp((s) => s.queue);
+  const allPassages = useApp((s) => s.passages);
+  const decks = useApp((s) => s.decks);
+  const deck = useUi((s) => (s.versesDeck !== null && decks.some((d) => d.id === s.versesDeck) ? s.versesDeck : null));
+  const defaults = useScheduler();
+  const schedulerFor = useSchedulers();
+  // The phases' names are the deck's (or, for all, the default schedule's)
+  const sch = deck === null ? defaults : deckScheduler(defaults, decks, deck);
   const names = isAdaptive(sch.algorithm) ? ADAPTIVE_PHASE_NAMES : PHASE_NAMES;
   const [filter, setFilter] = useState("");
 
+  const inDeck = (x: { deck?: string }) => deck === null || deckOf(x) === deck;
+  const verses = allVerses.filter(inDeck);
+  const queue = allQueue.filter(inDeck);
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const matches = (v: { tag: string; ref: string }) => words.every((w) => `#${v.tag} ${v.ref}`.toLowerCase().includes(w));
-  const shown = verses.filter(matches).map((verse) => ({ verse, status: verseStatus(verse, day, sch) }));
+  // A passage's cards are listed under it, not one by one
+  const shown = verses.filter((v) => !v.passage && matches(v)).map((verse) => ({ verse, status: verseStatus(verse, day, schedulerFor(verse)) }));
   const queueShown = queue.filter(matches);
+  const passages = allPassages.filter((p) => inDeck(p) && (matches(p) || allVerses.some((v) => v.passage === p.id && matches(v))));
   const total = verses.length + queue.length;
 
   return (
@@ -46,7 +63,7 @@ export function VersesView({ day }: { day: Day }) {
             </button>
           )}
         </div>
-        <Button variant="outline" className="hidden h-9 sm:inline-flex" onClick={() => openPanel({ kind: "edit", verseId: null })}>
+        <Button variant="outline" className="hidden h-9 sm:inline-flex" onClick={() => openPanel({ kind: "edit", verseId: null, deck: deck ?? undefined })}>
           <PlusIcon /> Add
         </Button>
         <Menu.Root>
@@ -61,6 +78,13 @@ export function VersesView({ day }: { day: Day }) {
               sideOffset={6}
               className="z-50 min-w-56 overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg animate-fade-up"
             >
+              <MenuItem onSelect={() => openPanel({ kind: "passage", passageId: null, deck: deck ?? undefined })}>
+                <BookOpenIcon /> Add a book or chapters
+              </MenuItem>
+              <MenuItem onSelect={() => openPanel({ kind: "deck", deckId: null })}>
+                <FolderPlusIcon /> New deck
+              </MenuItem>
+              <Menu.Separator className="my-1 h-px bg-border" />
               <MenuItem onSelect={() => openPanel({ kind: "import" })}>
                 <ListPlusIcon /> Import a list
               </MenuItem>
@@ -80,14 +104,22 @@ export function VersesView({ day }: { day: Day }) {
         </Menu.Root>
       </div>
 
-      {shown.length === 0 && queueShown.length === 0 ? (
+      <DeckChips deck={deck} />
+      {passages.length > 0 && <PassagesSection passages={passages} day={day} schedulerFor={schedulerFor} />}
+
+      {shown.length === 0 && queueShown.length === 0 && passages.length === 0 ? (
         <div className="rounded-2xl border border-dashed px-6 py-14 text-center text-sm text-muted-foreground">
           {total === 0 ? (
             <div className="flex flex-col items-center gap-3">
-              <p>No verses yet: add one, or import a list.</p>
-              <Button variant="outline" onClick={() => openPanel({ kind: "import" })}>
-                <ListPlusIcon /> Import a list
-              </Button>
+              <p>{deck === null ? "No verses yet: add one, a book or chapters, or import a list." : "Nothing in this deck yet."}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant="outline" onClick={() => openPanel({ kind: "passage", passageId: null, deck: deck ?? undefined })}>
+                  <BookOpenIcon /> Add a book or chapters
+                </Button>
+                <Button variant="outline" onClick={() => openPanel({ kind: "import" })}>
+                  <ListPlusIcon /> Import a list
+                </Button>
+              </div>
             </div>
           ) : (
             "No verses match."
@@ -99,7 +131,9 @@ export function VersesView({ day }: { day: Day }) {
           const when = (s: (typeof shown)[number]["status"]) => s.scheduled ?? s.next ?? "";
           const group = shown
             .filter((v) => v.status.phase === phase)
-            .sort((a, b) => (isAdaptive(sch.algorithm) && phase !== "upcoming" ? when(a.status).localeCompare(when(b.status)) : b.verse.start.localeCompare(a.verse.start)));
+            .sort((a, b) =>
+              isAdaptive(schedulerFor(a.verse).algorithm) && phase !== "upcoming" ? when(a.status).localeCompare(when(b.status)) : b.verse.start.localeCompare(a.verse.start),
+            );
           // The queue comes before the verses dated ahead, nearest first
           const queueSection = phase === "upcoming" && <QueueSection key="queue" shown={queueShown} day={day} filtered={words.length > 0} />;
           if (phase === "upcoming") group.reverse();
@@ -140,12 +174,101 @@ export function VersesView({ day }: { day: Day }) {
       <Button
         size="icon"
         className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 size-14 rounded-full shadow-lg sm:hidden"
-        onClick={() => openPanel({ kind: "edit", verseId: null })}
+        onClick={() => openPanel({ kind: "edit", verseId: null, deck: deck ?? undefined })}
         aria-label="Add a verse"
       >
         <PlusIcon className="size-6" />
       </Button>
     </div>
+  );
+}
+
+/** The decks to show (each with how many entries), all of them, a new one, and editing the one shown */
+function DeckChips({ deck }: { deck: string | null }) {
+  const decks = useApp((s) => s.decks);
+  const verses = useApp((s) => s.verses);
+  const passages = useApp((s) => s.passages);
+  if (decks.length < 2) {
+    return (
+      <button className="-mt-2 self-start rounded-md px-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => openPanel({ kind: "deck", deckId: null })}>
+        + New deck
+      </button>
+    );
+  }
+  const count = (id: string) => verses.filter((v) => deckOf(v) === id && !v.passage).length + passages.filter((p) => deckOf(p) === id).length;
+  const chip = (id: string | null, name: string, n: number) => (
+    <button
+      key={id ?? "all"}
+      onClick={() => useUi.setState({ versesDeck: id })}
+      aria-pressed={deck === id}
+      className={cn(
+        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm whitespace-nowrap transition-colors sm:h-8",
+        deck === id ? "border-primary bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {name}
+      <span className={cn("text-xs tabular-nums", deck === id ? "text-primary-foreground/80" : "text-muted-foreground")}>{n}</span>
+    </button>
+  );
+  return (
+    <div className="-mx-4 -mt-2 flex items-center gap-1.5 overflow-x-auto px-4 pb-1 scrollbar-thin sm:-mx-8 sm:px-8" data-no-swipe>
+      {chip(null, "All decks", verses.filter((v) => !v.passage).length + passages.length)}
+      {decks.map((d) => chip(d.id, d.name, count(d.id)))}
+      {deck !== null && (
+        <Button variant="ghost" size="icon" className="size-9 shrink-0 text-muted-foreground sm:size-8" onClick={() => openPanel({ kind: "deck", deckId: deck })} aria-label="Rename or delete this deck">
+          <PencilIcon />
+        </Button>
+      )}
+      <Button variant="ghost" size="icon" className="size-9 shrink-0 text-muted-foreground sm:size-8" onClick={() => openPanel({ kind: "deck", deckId: null })} aria-label="New deck">
+        <FolderPlusIcon />
+      </Button>
+    </div>
+  );
+}
+
+/** Books, chapters, and passages added as one: each a row with its cards, how many are due, and when next */
+function PassagesSection({ passages, day, schedulerFor }: { passages: PassageGroup[]; day: Day; schedulerFor: (v: Verse) => Scheduler }) {
+  const verses = useApp((s) => s.verses);
+  return (
+    <section className="space-y-2">
+      <h2 className="flex items-center gap-2 px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        <BookOpenIcon className="size-3.5" />
+        Passages
+        <span className="rounded-full bg-muted px-1.5 py-px text-[11px] tabular-nums">{passages.length}</span>
+      </h2>
+      <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+        {passages.map((p) => {
+          const cards = verses.filter((v) => v.passage === p.id);
+          const statuses = cards.map((v) => verseStatus(v, day, schedulerFor(v)));
+          const due = statuses.filter((s) => s.due).length;
+          const next = statuses.flatMap((s) => (s.next && s.next > day ? [s.next] : [])).sort()[0];
+          return (
+            <li key={p.id}>
+              <button
+                className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60 active:bg-muted"
+                onClick={() => openPanel({ kind: "passage", passageId: p.id })}
+              >
+                <div className="min-w-0 flex-1">
+                  {p.tag && <div className="truncate text-sm font-medium text-primary">#{p.tag}</div>}
+                  <div className="truncate font-serif text-base font-semibold">{p.ref}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {cards.length} {cards.length === 1 ? "card" : "cards"}, {describeUnit(p.unit, p.size)}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                  {due > 0 ? (
+                    <div className="inline-block rounded-full bg-accent px-2 py-0.5 font-semibold text-accent-foreground tabular-nums">{due} due</div>
+                  ) : (
+                    next && <div className="tabular-nums">Next {describeDay(next).replace(/, \d{4}$/, "")}</div>
+                  )}
+                </div>
+                <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -164,7 +287,7 @@ function QueueSection({ shown, day, filtered }: { shown: Queued[]; day: Day; fil
         <span className="rounded-full bg-muted px-1.5 py-px text-[11px] tabular-nums">{queue.length}</span>
         <button
           className="-my-1 ml-auto rounded-md px-2 py-1 text-xs font-medium tracking-normal text-primary normal-case hover:bg-accent"
-          onClick={() => openPanel({ kind: "edit", verseId: null, queue: true })}
+          onClick={() => openPanel({ kind: "edit", verseId: null, queue: true, deck: useUi.getState().versesDeck ?? undefined })}
         >
           + Queue a verse
         </button>

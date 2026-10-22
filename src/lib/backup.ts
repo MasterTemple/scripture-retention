@@ -1,13 +1,14 @@
 import { toast } from "sonner";
 import { makeBackup, readBackup } from "@/core/backup";
+import { readDecks } from "@/core/decks";
 import { mergeSrs, toAlgorithm } from "@/core/srs";
 import { reviewDay, useApp, type Settings } from "@/state/store";
 import { startReview } from "@/state/review";
 
 /** Saves everything, review history and all, as a file */
 export function downloadBackup() {
-  const { verses, queue, queueChecked, settings } = useApp.getState();
-  const text = JSON.stringify(makeBackup({ verses, queue, queueChecked, settings }), null, 1);
+  const { verses, queue, queueChecked, settings, decks, passages } = useApp.getState();
+  const text = JSON.stringify(makeBackup({ verses, queue, queueChecked, settings, decks, passages }), null, 1);
   const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
   const a = document.createElement("a");
   a.href = url;
@@ -29,6 +30,8 @@ export async function restoreBackup(file: File): Promise<boolean> {
     verses: backup.verses,
     queue: backup.queue,
     queueChecked: backup.queueChecked,
+    decks: readDecks(backup.decks),
+    passages: backup.passages ?? [],
     settings: {
       ...previous.settings,
       ...saved,
@@ -40,9 +43,9 @@ export async function restoreBackup(file: File): Promise<boolean> {
     },
   });
   startReview();
-  const { verses, queue, queueChecked, settings } = previous;
+  const { verses, queue, queueChecked, settings, decks, passages } = previous;
   toast.success(`Restored ${backup.verses.length} ${backup.verses.length === 1 ? "verse" : "verses"}`, {
-    action: { label: "Undo", onClick: () => (useApp.setState({ verses, queue, queueChecked, settings }), startReview()) },
+    action: { label: "Undo", onClick: () => (useApp.setState({ verses, queue, queueChecked, settings, decks, passages }), startReview()) },
   });
   return true;
 }

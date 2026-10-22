@@ -4,7 +4,7 @@ import { addDays, describeDay, type Day } from "@/core/dates";
 import { describePosition, type Verse } from "@/core/schedule";
 import { ALGORITHM_INFO, describeInterval, GRADE_NAMES, isPlacing, memoryOf, verseStatus, type LogEntry } from "@/core/srs";
 import { cn } from "@/lib/utils";
-import { useScheduler } from "@/state/store";
+import { useSchedulers } from "@/state/store";
 
 const PRESETS: [string, number][] = [
   ["Tomorrow", 1],
@@ -84,7 +84,7 @@ export function IntervalPicker({ days, day, onChange }: { days: number; day: Day
 
 /** Where a verse is under the adaptive algorithm today, and what it knows of the verse's memory */
 export function AdaptiveSummary({ verse, day }: { verse: Verse; day: Day }) {
-  const sch = useScheduler();
+  const sch = useSchedulers()(verse);
   const s = verseStatus(verse, day, sch);
   const memory = s.phase === "upcoming" ? [] : memoryOf(verse, day, sch);
   const when = s.phase === "upcoming" ? `Starts ${describeDay(verse.start)}` : s.due ? "Due today" : s.next ? `Next ${describeDay(s.next)}` : null;

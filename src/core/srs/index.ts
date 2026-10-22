@@ -141,9 +141,13 @@ export function preview(verse: Verse, day: Day, sch: Scheduler, at?: number): Gr
   });
 }
 
+/** What schedules each verse: one scheduler for all, or each verse's (by its deck) */
+export type Schedulers = Scheduler | ((verse: Verse) => Scheduler);
+export const schedulerOf = (sch: Schedulers, verse: Verse): Scheduler => (typeof sch === "function" ? sch(verse) : sch);
+
 /** The verses due on `day`: by phase (oldest first in each), or shuffled */
-export function dueVerses(verses: readonly Verse[], day: Day, sch: Scheduler, order: Order = "phase", random: () => number = Math.random): Verse[] {
-  const due = verses.map((verse) => ({ verse, status: verseStatus(verse, day, sch) })).filter((v) => v.status.due);
+export function dueVerses(verses: readonly Verse[], day: Day, sch: Schedulers, order: Order = "phase", random: () => number = Math.random): Verse[] {
+  const due = verses.map((verse) => ({ verse, status: verseStatus(verse, day, schedulerOf(sch, verse)) })).filter((v) => v.status.due);
   if (order === "shuffle") {
     for (let i = due.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1));

@@ -16,6 +16,10 @@ export interface Verse {
   start: Day;
   last?: Day;
   log?: LogEntry[];
+  /** The deck it's in (the default deck when absent) */
+  deck?: string;
+  /** The passage it's a card of, added and deleted with it */
+  passage?: string;
 }
 
 /** The reviewing phases a verse goes through, in order */
