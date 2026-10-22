@@ -6,6 +6,7 @@ import { Dialog } from "@/components/ui/overlays";
 import { dueVerses } from "@/core/schedule";
 import { ReviewView } from "@/features/review/ReviewView";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
+import { TranslationDialog } from "@/features/settings/TranslationDialog";
 import { EditDialog } from "@/features/verses/EditDialog";
 import { ImportDialog } from "@/features/verses/ImportDialog";
 import { MoveDialog } from "@/features/verses/MoveDialog";
@@ -158,6 +159,7 @@ function Panels({ day }: { day: string }) {
       {panel?.kind === "edit" && <EditDialog key={panel.verseId ?? "new"} verseId={panel.verseId} day={day} />}
       {panel?.kind === "import" && <ImportDialog day={day} />}
       {panel?.kind === "settings" && <SettingsDialog />}
+      {panel?.kind === "translations" && <TranslationDialog onDone={() => openPanel({ kind: "settings" })} />}
       {moving && <MoveDialog verse={moving} day={day} />}
     </Dialog>
   );

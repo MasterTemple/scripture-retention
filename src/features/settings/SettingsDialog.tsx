@@ -1,10 +1,9 @@
-import { CheckIcon, CopyIcon, DownloadIcon, ListPlusIcon, Loader2Icon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, SearchIcon, Share2Icon, SunIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { CheckIcon, ChevronRightIcon, CopyIcon, DownloadIcon, ListPlusIcon, MinusIcon, MonitorIcon, MoonIcon, PlusIcon, Share2Icon, SunIcon } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { BUILT_IN, fromCatalog, loadCatalog, type CatalogBible } from "@/bible/translations";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
-import { Input, Label, Select } from "@/components/ui/primitives";
+import { Label, Select } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
 import type { Durations, Order } from "@/core/schedule";
 import { canShare, copyList, downloadList, shareList } from "@/lib/exportList";
@@ -67,7 +66,7 @@ export function SettingsDialog() {
       </Section>
 
       <Section title="Bible">
-        <TranslationPicker />
+        <TranslationRow />
         <Row title="Text size">
           <Stepper
             value={settings.textScale}
@@ -186,106 +185,20 @@ function LinkRow({ title, url }: { title: string; url: string }) {
   );
 }
 
-/** The Bible verses are shown in: the built-in ones and those added, or any of fetch.bible's */
-function TranslationPicker() {
+/** The Bible verses are shown in; changed in its own dialog, which comes back here */
+function TranslationRow() {
   const translation = useTranslation();
-  const added = useApp((s) => s.settings.translations);
-  const update = useApp((s) => s.updateSettings);
-  const id = useId();
-  const [searching, setSearching] = useState(false);
-  const all = [...BUILT_IN, ...added.filter((t) => !BUILT_IN.some((b) => b.id === t.id))];
-
   return (
-    <div className="space-y-3 py-3">
-      <div className="flex items-center justify-between gap-4">
-        <Label htmlFor={id} className="block min-w-0 space-y-0.5">
-          <span className="block text-sm font-medium">Translation</span>
-          <span className="block text-xs leading-snug font-normal text-muted-foreground">
-            Each book downloads from fetch.bible the first time and is kept for offline use.
-          </span>
-        </Label>
-        <Select id={id} className="w-32 shrink-0" value={translation.id} onChange={(e) => update({ translationId: e.target.value })}>
-          {all.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.abbreviation}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {translation.name}
-        {translation.attribution && (
-          <>
-            {" · "}
-            {translation.attributionUrl ? (
-              <a className="underline underline-offset-2" href={translation.attributionUrl} target="_blank" rel="noreferrer">
-                {translation.attribution}
-              </a>
-            ) : (
-              translation.attribution
-            )}
-          </>
-        )}
-      </p>
-      {searching ? (
-        <CatalogSearch
-          onPick={(b) => {
-            const t = fromCatalog(b);
-            update({ translations: [...added.filter((x) => x.id !== t.id), t], translationId: t.id });
-            setSearching(false);
-          }}
-        />
-      ) : (
-        <Button variant="link" className="h-auto px-0" onClick={() => setSearching(true)}>
-          <SearchIcon /> Find another of fetch.bible's 1,400 translations
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function CatalogSearch({ onPick }: { onPick: (b: CatalogBible) => void }) {
-  const [catalog, setCatalog] = useState<CatalogBible[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  useEffect(() => {
-    loadCatalog().then(setCatalog, (e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
-
-  const results = useMemo(() => {
-    if (!catalog) return [];
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    const matches = catalog.filter((b) => words.every((w) => `${b.name} ${b.localName} ${b.abbreviation} ${b.languageName}`.toLowerCase().includes(w)));
-    return matches.sort((a, b) => Number(b.recommended) - Number(a.recommended) || a.name.localeCompare(b.name)).slice(0, 40);
-  }, [catalog, query]);
-
-  if (error) return <p className="text-sm text-destructive">{error}</p>;
-  return (
-    <div className="space-y-2">
-      <Input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, abbreviation, or language" enterKeyHint="search" />
-      {!catalog ? (
-        <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-          <Loader2Icon className="size-4 animate-spin" /> Loading the list…
-        </p>
-      ) : (
-        <ul className="max-h-72 divide-y overflow-y-auto overscroll-contain rounded-xl border scrollbar-thin">
-          {results.map((b) => (
-            <li key={b.fetchId}>
-              <button className={cn("flex w-full items-baseline gap-3 px-3 py-2.5 text-left hover:bg-muted active:bg-muted")} onClick={() => onPick(b)}>
-                <span className="w-16 shrink-0 truncate text-sm font-semibold">{b.abbreviation}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{b.name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {b.languageName}
-                    {b.year ? ` · ${b.year}` : ""}
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
-          {results.length === 0 && <li className="px-3 py-3 text-sm text-muted-foreground">No translations match.</li>}
-        </ul>
-      )}
-    </div>
+    <button className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-3 text-left hover:bg-muted/60 active:bg-muted" onClick={() => openPanel({ kind: "translations" })}>
+      <span className="min-w-0 flex-1 space-y-0.5">
+        <span className="block text-sm font-medium">Translation</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {translation.name}
+          {translation.source.kind === "upload" ? " · uploaded" : ""}
+        </span>
+      </span>
+      <span className="rounded-md bg-muted px-2 py-1 text-xs font-bold">{translation.abbreviation}</span>
+      <ChevronRightIcon className="size-4 text-muted-foreground" />
+    </button>
   );
 }

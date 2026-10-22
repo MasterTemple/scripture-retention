@@ -7,6 +7,7 @@ export type Panel =
   | { kind: "move"; verseId: string }
   | { kind: "import" }
   | { kind: "settings" }
+  | { kind: "translations" }
   | null;
 
 interface Ui {

@@ -27,11 +27,12 @@ export interface BookText {
   verses: Record<string, VerseText>;
 }
 
-/** A Bible on fetch.bible, by its id there */
-export type TranslationSource = { kind: "fetch"; id: string };
+export type TranslationSource =
+  | { kind: "fetch"; id: string }
+  | { kind: "upload" };
 
 export interface Translation {
-  /** Stable id used for storage, e.g. "fetch:eng_bsb" */
+  /** Stable id used for storage, e.g. "fetch:eng_bsb" or "upload:my-bible" */
   id: string;
   name: string;
   abbreviation: string;
@@ -39,4 +40,6 @@ export interface Translation {
   language?: string;
   attribution?: string;
   attributionUrl?: string;
+  /** For uploads, the books that were imported */
+  books?: number[];
 }

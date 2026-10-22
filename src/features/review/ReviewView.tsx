@@ -162,7 +162,7 @@ function VerseText({ reference }: { reference: string }) {
       state.status === "unknown"
         ? "This reference couldn't be read. Check its spelling in Verses."
         : state.status === "missing"
-          ? `The ${translation.abbreviation} doesn't have this passage.`
+          ? `The ${translation.abbreviation} doesn't have this passage${translation.source.kind === "upload" ? " (its book wasn't uploaded)" : ""}.`
           : `Couldn't load the ${translation.abbreviation}: ${state.error}`;
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center text-sm text-muted-foreground">

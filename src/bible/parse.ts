@@ -1,4 +1,4 @@
-import { BookStyle, LogoxideBook, type BookVerseText, type Logoxide, type Topos } from "logoxide";
+import { BookStyle, LogoxideBook, LogoxideErrorException, type BookVerseText, type Logoxide, type LogoxideBible, type Topos } from "logoxide";
 import type { BookText, VerseText } from "./types";
 
 export type Markup = "usx" | "usfm" | "osis";
@@ -65,4 +65,54 @@ export function bookText(topos: Topos, book: LogoxideBook): BookText | null {
     for (const c of covered) verses[`${c.chapter}:${c.verse}`] = entry;
   }
   return { bookId, verses };
+}
+
+/**
+ * Reads uploaded files, keeping the books it can read. logoxide finds each file's format, opens
+ * a zip (a whole Bible, as eBible.org and Paratext export them) whatever folders its books are
+ * in, and cuts a whole-Bible OSIS file into its books. `skipped` names the uploaded files that
+ * gave no book; a zip's other files (copyright pages, front matter, signatures) aren't worth
+ * mentioning. `onProgress` hears how many books are read of how many.
+ */
+export function readFiles(
+  lx: Logoxide,
+  topos: Topos,
+  files: { name: string; bytes: Uint8Array }[],
+  onProgress?: (done: number, total: number) => void,
+) {
+  const uploaded = new Set(files.map((f) => f.name));
+  let bible: LogoxideBible;
+  try {
+    bible = lx.openBible(files.map((f) => ({ path: f.name, bytes: f.bytes })));
+  } catch (error) {
+    // Not one book in them
+    if (error instanceof LogoxideErrorException && error.value.tag === "NotFound") return { books: [], skipped: [...uploaded] };
+    throw error;
+  }
+  try {
+    const skipped = bible.skipped().map((s) => s.path).filter((path) => uploaded.has(path));
+    const fileOf = new Map(bible.bookFiles().map((f) => [f.bookId, f.path]));
+    const ids = [...bible.books()];
+    const books: BookText[] = [];
+    for (const [i, id] of ids.entries()) {
+      onProgress?.(i, ids.length);
+      let text: BookText | null = null;
+      try {
+        const book = bible.book(id);
+        try {
+          text = bookText(topos, book);
+        } finally {
+          book.dispose();
+        }
+      } catch {
+        // Passed over, as a book without verses is
+      }
+      if (text && Object.keys(text.verses).length) books.push(text);
+      else if (uploaded.has(fileOf.get(id) ?? "")) skipped.push(fileOf.get(id)!);
+    }
+    onProgress?.(ids.length, ids.length);
+    return { books, skipped };
+  } finally {
+    bible.dispose();
+  }
 }

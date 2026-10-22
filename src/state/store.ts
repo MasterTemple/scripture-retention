@@ -14,7 +14,7 @@ export interface Settings {
   /** Hour of the day (0-11) a new day of reviews begins */
   dayStartsAt: number;
   translationId: string;
-  /** Translations added from fetch.bible's list */
+  /** Translations added from fetch.bible's list or uploaded */
   translations: Translation[];
   /** How large the verse is set on a card, 1 being the default */
   textScale: number;
@@ -29,6 +29,9 @@ interface State {
   updateVerse: (id: string, patch: Partial<Omit<Verse, "id">>) => void;
   removeVerse: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  /** Adds a translation (from fetch.bible's list, or uploaded) and reads from it */
+  addTranslation: (t: Translation) => void;
+  removeTranslation: (id: string) => void;
 }
 
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -94,6 +97,16 @@ export const useApp = create<State>()(
       updateVerse: (id, patch) => set((s) => ({ verses: s.verses.map((v) => (v.id === id ? { ...v, ...patch } : v)) })),
       removeVerse: (id) => set((s) => ({ verses: s.verses.filter((v) => v.id !== id) })),
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+      addTranslation: (t) =>
+        set((s) => ({ settings: { ...s.settings, translations: [...s.settings.translations.filter((x) => x.id !== t.id), t], translationId: t.id } })),
+      removeTranslation: (id) =>
+        set((s) => ({
+          settings: {
+            ...s.settings,
+            translations: s.settings.translations.filter((t) => t.id !== id),
+            translationId: s.settings.translationId === id ? DEFAULT_TRANSLATION : s.settings.translationId,
+          },
+        })),
     }),
     {
       name: "scripture-retention",
