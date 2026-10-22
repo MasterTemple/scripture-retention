@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="description" content="Keep the Scripture you've memorized: each verse daily for 7 weeks, weekly for 7 months, then monthly for 7 years." />
+    <meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111114" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Retention" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Scripture Retention</title>
+    <script>
+      // iOS zooms in on a focused field with text under 16px and stays zoomed after; a maximum
+      // scale stops that, and iOS still lets you pinch to zoom. Elsewhere it would stop
+      // pinching, so it's only for iOS.
+      if (/iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+        const viewport = document.querySelector("meta[name=viewport]");
+        viewport.content += ", maximum-scale=1";
+      }
+    </script>
+    <script>
+      // Set the theme before the first paint, so a dark page never flashes light
+      try {
+        const theme = JSON.parse(localStorage.getItem("scripture-retention") || "{}")?.state?.settings?.theme ?? "system";
+        const dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <div style="min-height: 100dvh; display: grid; place-items: center; font: 500 14px system-ui, sans-serif; color: #8a8a93">Loading…</div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
