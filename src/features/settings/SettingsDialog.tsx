@@ -3,7 +3,7 @@ import { useId, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/overlays";
-import { Label, Select } from "@/components/ui/primitives";
+import { Label, Select, Switch } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
 import { WEEKDAYS } from "@/core/dates";
 import type { Durations, Order } from "@/core/schedule";
@@ -39,7 +39,7 @@ export function SettingsDialog() {
   const settings = useApp((s) => s.settings);
   const update = useApp((s) => s.updateSettings);
   const count = useApp((s) => s.verses.length + s.queue.length);
-  const ids = { day: useId(), start: useId() };
+  const ids = { day: useId(), start: useId(), steady: useId() };
 
   return (
     <DialogContent title="Settings" description="Saved on this device." onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -54,6 +54,13 @@ export function SettingsDialog() {
               { value: "shuffle", label: "Shuffled" },
             ]}
           />
+        </Row>
+        <Row
+          title="Keep the card steady"
+          description={settings.steadyCard ? "The topic and reference stay where they are when the verse shows." : "The topic and reference show large and centered until the verse shows."}
+          htmlFor={ids.steady}
+        >
+          <Switch id={ids.steady} checked={settings.steadyCard} onCheckedChange={(steadyCard) => update({ steadyCard })} />
         </Row>
         <Row title="New day begins at" description="Reviews before this hour count for the day before." htmlFor={ids.day}>
           <Select id={ids.day} className="w-32" value={settings.dayStartsAt} onChange={(e) => update({ dayStartsAt: Number(e.target.value) })}>

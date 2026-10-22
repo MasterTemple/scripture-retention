@@ -61,6 +61,9 @@ function useReviewKeys(verse: Verse | null, day: Day) {
 function Card({ verse, day }: { verse: Verse; day: Day }) {
   const durations = useApp((s) => s.settings.durations);
   const { index, queue, revealed } = useReview();
+  // The topic and reference where they'll be once the verse shows, so nothing moves on revealing
+  const steady = useApp((s) => s.settings.steadyCard);
+  const top = revealed || steady;
   const s = status(verse, day, durations);
   const swipe = useMemo(
     () =>
@@ -97,18 +100,19 @@ function Card({ verse, day }: { verse: Verse; day: Day }) {
         onClick={revealed ? undefined : reveal}
         className={cn(
           "flex min-h-[min(22rem,55dvh)] flex-1 animate-fade-up flex-col rounded-2xl border bg-card shadow-sm select-none",
-          !revealed && "cursor-pointer items-center justify-center text-center active:scale-[0.995] transition-transform",
+          !revealed && "cursor-pointer transition-transform active:scale-[0.995]",
+          !top && "items-center justify-center text-center",
         )}
       >
         {/* The topic and reference stay put while a long passage scrolls below them */}
-        <div className={cn("px-5 sm:px-8", revealed ? "sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 rounded-t-2xl border-b bg-card/95 py-4 backdrop-blur" : "py-8")}>
-          <div className={cn("font-semibold break-words text-primary", revealed ? "text-lg" : "text-2xl sm:text-3xl")}>#{verse.tag || "?"}</div>
-          <div className={cn("font-serif font-semibold tracking-tight", revealed ? "text-xl" : "mt-2 text-3xl sm:text-4xl")}>{verse.ref}</div>
+        <div className={cn("px-5 sm:px-8", top ? "sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 rounded-t-2xl border-b bg-card/95 py-4 backdrop-blur" : "py-8")}>
+          <div className={cn("font-semibold break-words text-primary", top ? "text-xl" : "text-2xl sm:text-3xl")}>#{verse.tag || "?"}</div>
+          <div className={cn("font-serif font-semibold tracking-tight", top ? "text-2xl" : "mt-2 text-3xl sm:text-4xl")}>{verse.ref}</div>
         </div>
         {revealed ? (
           <VerseText reference={verse.ref} />
         ) : (
-          <p className="max-w-xs px-6 pb-8 text-sm text-balance text-muted-foreground">
+          <p className={cn("text-sm text-balance text-muted-foreground", top ? "px-5 py-5 sm:px-8 sm:py-6" : "max-w-xs px-6 pb-8")}>
             Say the topic, the reference, and the verse aloud, then tap to check.
           </p>
         )}

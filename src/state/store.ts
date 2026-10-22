@@ -19,6 +19,8 @@ export interface Settings {
   translationId: string;
   /** Translations added from fetch.bible's list or uploaded */
   translations: Translation[];
+  /** Show a card's topic and reference the same before and after revealing the verse */
+  steadyCard: boolean;
   /** How large the verse is set on a card, 1 being the default */
   textScale: number;
   theme: Theme;
@@ -107,6 +109,7 @@ export const useApp = create<State>()(
         dayStartsAt: 0,
         translationId: DEFAULT_TRANSLATION,
         translations: [],
+        steadyCard: true,
         textScale: 1,
         theme: "system",
       },
