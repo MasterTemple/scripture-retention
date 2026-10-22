@@ -8,9 +8,10 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
 /**
- * A dialog: a sheet rising from the bottom on a phone, in reach of a thumb and kept above the
- * keyboard (`--keyboard`, from `useKeyboardInset`), and a centered panel on wider screens.
- * `footer` stays in view under the content as it scrolls.
+ * A dialog: a sheet rising from the bottom on a phone, in reach of a thumb, kept above the
+ * keyboard and no taller than what it leaves showing (`--keyboard`, `--viewport-h`, from
+ * lib/keyboard.ts), and a centered panel on wider screens. `footer` stays in view under the
+ * content as it scrolls.
  */
 export function DialogContent({
   className,
@@ -27,7 +28,7 @@ export function DialogContent({
         className={cn(
           "fixed z-50 flex flex-col border bg-popover text-popover-foreground shadow-2xl outline-none",
           // Phones: a bottom sheet
-          "inset-x-0 bottom-[var(--keyboard,0px)] max-h-[calc(100dvh-var(--keyboard,0px)-env(safe-area-inset-top)-0.75rem)] rounded-t-2xl border-b-0 data-[state=open]:animate-[sheet-up_0.25s_cubic-bezier(0.2,0.9,0.3,1)]",
+          "inset-x-0 bottom-[var(--keyboard,0px)] max-h-[calc(var(--viewport-h,100dvh)-env(safe-area-inset-top)-0.75rem)] rounded-t-2xl border-b-0 data-[state=open]:animate-[sheet-up_0.25s_cubic-bezier(0.2,0.9,0.3,1)]",
           // Wider: centered
           "sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[min(90dvh,760px)] sm:w-[calc(100%-1.5rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border-b sm:data-[state=open]:animate-pop",
           className,

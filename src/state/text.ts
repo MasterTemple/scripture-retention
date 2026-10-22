@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadBook } from "@/bible/library";
 import { readReference, type Passage } from "@/bible/topos";
-import { spanLabel, type Translation, type VerseText } from "@/bible/types";
+import { spanLabel, type Translation, type VerseRef, type VerseText } from "@/bible/types";
 
 /** A verse of a passage as shown: its number (when the passage has several) and its text */
 export interface ShownVerse {
@@ -86,4 +86,10 @@ export function prefetch(references: string[], translation: Translation) {
     }
   }
   for (const bookId of books) loadBook(translation, bookId).catch(() => {});
+}
+
+/** One verse's text in a translation; `null` when the translation doesn't have it */
+export async function verseText(translation: Translation, v: VerseRef): Promise<string | null> {
+  const book = await loadBook(translation, v.bookId);
+  return book?.verses[`${v.chapter}:${v.verse}`]?.text ?? null;
 }

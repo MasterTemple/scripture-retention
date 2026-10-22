@@ -58,7 +58,7 @@ export function SettingsDialog() {
       description="Saved on this device."
       onOpenAutoFocus={(e) => e.preventDefault()}
       // One height for every tab, so moving between them doesn't resize the sheet
-      className="max-sm:h-[calc(100dvh-var(--keyboard,0px)-env(safe-area-inset-top)-0.75rem)] sm:h-[min(90dvh,680px)] sm:max-w-2xl"
+      className="max-sm:h-[calc(var(--viewport-h,100dvh)-env(safe-area-inset-top)-0.75rem)] sm:h-[min(90dvh,680px)] sm:max-w-2xl"
     >
       <div className="sm:grid sm:min-h-full sm:grid-cols-[11rem_1fr]">
         <div className="sticky top-0 z-10 border-b bg-popover sm:self-start sm:border-b-0">
